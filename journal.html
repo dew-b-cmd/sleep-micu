@@ -1,0 +1,1545 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>수면 일지</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&display=swap" rel="stylesheet"/>
+  <style>
+    :root {
+      --night:   #0a1628;
+      --navy:    #10264a;
+      --deep:    #1a3868;
+      --sky:     #2a5298;
+      --blue:    #3b7dd8;
+      --soft:    #8bbcf0;
+      --pale:    #d4e8ff;
+      --white:   #ffffff;
+      --accent:  #f0a500;
+      --gold:    #ffd166;
+      --text:    #e8f0fe;
+      --muted:   #8bbcf0;
+      /* 수면 상태 색상 — 선명하고 구별하기 쉽게 */
+      --c-sleep:   #34d399;  /* 실제 수면  — 에메랄드 그린 */
+      --c-latency: #fbbf24;  /* 잠들기 전/각성 — 앰버  */
+      --c-awake:   #60a5fa;  /* 침대에 있던 시간 — 라이트 블루 */
+      --c-work:    #a78bfa;  /* 근무 오버레이 — 바이올렛 */
+      /* 상태 피드백 */
+      --good-bg:    rgba(52,211,153,0.12);
+      --good-border:#34d399;
+      --warn-bg:    rgba(251,191,36,0.12);
+      --warn-border:#fbbf24;
+      --alert-bg:   rgba(248,113,113,0.12);
+      --alert-border:#f87171;
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: 'Noto Sans KR','Segoe UI','Malgun Gothic',Arial,sans-serif;
+      color: var(--text);
+      background: linear-gradient(160deg,#0a1628 0%,#10264a 40%,#1a3868 70%,#0f1e3a 100%);
+      min-height: 100vh;
+      position: relative;
+      overflow-x: hidden;
+    }
+    .star-field { position:fixed;inset:0;pointer-events:none;z-index:0; }
+    .star { position:absolute;border-radius:50%;background:#fff;
+            animation:twinkle var(--dur,3s) ease-in-out infinite var(--delay,0s); }
+    @keyframes twinkle {
+      0%,100%{opacity:0.15;transform:scale(1);}
+      50%{opacity:0.85;transform:scale(1.3);}
+    }
+    body::before {
+      content:"";position:fixed;inset:0;pointer-events:none;
+      background:
+        radial-gradient(ellipse at 15% 20%,rgba(59,125,216,.18) 0%,transparent 50%),
+        radial-gradient(ellipse at 85% 70%,rgba(240,165,0,.08)  0%,transparent 45%),
+        radial-gradient(ellipse at 50% 50%,rgba(42,82,152,.12)  0%,transparent 70%);
+      z-index:0;
+    }
+    .container {
+      max-width: 980px;
+      margin: 0 auto;
+      padding: 20px 14px 60px;
+      position: relative;
+      z-index: 1;
+    }
+    .hero {
+      background:rgba(255,255,255,0.04);backdrop-filter:blur(14px);
+      border:1px solid rgba(139,188,240,.22);border-radius:28px;
+      padding:32px 28px;box-shadow:0 24px 56px rgba(0,0,0,.3);
+      margin-bottom:20px;position:relative;overflow:hidden;text-align:center;
+    }
+    .hero::before {
+      content:"";position:absolute;right:-40px;bottom:-40px;
+      width:240px;height:240px;border-radius:50%;pointer-events:none;
+      background:radial-gradient(circle,rgba(240,165,0,.12),transparent 70%);
+    }
+    .hero-moon {
+      font-size:40px;display:block;margin-bottom:10px;
+      filter:drop-shadow(0 0 16px rgba(240,165,0,.5));
+      animation:float 4s ease-in-out infinite;
+    }
+    @keyframes float{0%,100%{transform:translateY(0) rotate(-5deg);}50%{transform:translateY(-8px) rotate(5deg);}}
+    .hero-badge {
+      display:inline-flex;align-items:center;gap:6px;
+      background:rgba(59,125,216,.2);border:1px solid rgba(139,188,240,.3);
+      border-radius:20px;padding:5px 14px;font-size:11px;
+      color:var(--soft);letter-spacing:.08em;margin-bottom:12px;
+    }
+    .hero h1 {
+      margin:0 0 8px;font-size:1.7rem;font-weight:700;
+      letter-spacing:-.03em;color:var(--white);position:relative;z-index:1;
+    }
+    .hero h1 em { color:var(--gold);font-style:normal; }
+    .hero p {
+      margin:0;line-height:1.7;color:rgba(255,255,255,.72);
+      font-size:.9rem;position:relative;z-index:1;
+    }
+    .chip-row {
+      display:flex;gap:8px;flex-wrap:wrap;margin-top:14px;
+      justify-content:center;position:relative;z-index:1;
+    }
+    .chip {
+      padding:5px 12px;border-radius:999px;
+      background:rgba(59,125,216,.18);border:1px solid rgba(139,188,240,.3);
+      font-size:.75rem;font-weight:600;color:var(--pale);
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(12, 1fr);
+      gap: 16px;
+    }
+    .card {
+      grid-column:span 12;
+      background:rgba(255,255,255,.05);backdrop-filter:blur(12px);
+      border:1px solid rgba(139,188,240,.2);border-radius:22px;
+      padding:20px 18px 22px;box-shadow:0 12px 40px rgba(0,0,0,.25);
+      transition:border-color .2s;
+    }
+    .card:hover { border-color:rgba(139,188,240,.38); }
+    .card h2,.card h3 {
+      margin:0 0 14px;letter-spacing:-.03em;color:var(--white);font-size:1.05rem;
+    }
+    .subtle {
+      color:rgba(255,255,255,.6);line-height:1.7;font-size:.88rem;
+    }
+    .form-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 14px;
+    }
+    .field {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .field label {
+      font-size: 0.82rem;
+      font-weight: 700;
+      color: var(--pale);
+      letter-spacing: 0.01em;
+    }
+    .field input, .field select, .field textarea {
+      width: 100%;
+      border: 1px solid rgba(139,188,240,.28);
+      border-radius: 12px;
+      padding: 11px 12px;
+      font: inherit;
+      background: rgba(255,255,255,.09);
+      color: var(--white);
+      font-size: 0.9rem;
+      transition: border-color 0.15s, box-shadow 0.15s;
+    }
+    .field input::placeholder, .field textarea::placeholder {
+      color: rgba(139,188,240,.4);
+    }
+    .field input[type="date"]::-webkit-calendar-picker-indicator,
+    .field input[type="datetime-local"]::-webkit-calendar-picker-indicator,
+    .field input[type="time"]::-webkit-calendar-picker-indicator {
+      filter: invert(.7) sepia(1) saturate(2) hue-rotate(185deg);
+      cursor: pointer;
+    }
+    .field select option { background: #1a3868; color: var(--white); }
+    .field textarea {
+      min-height: 72px;
+      resize: vertical;
+      line-height: 1.6;
+    }
+    .field textarea:focus, .field input:focus, .field select:focus {
+      outline: none;
+      border-color: var(--blue);
+      box-shadow: 0 0 0 3px rgba(59,125,216,.25);
+    }
+    .slider-wrap {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .slider-note { color:var(--gold);font-size:.85rem;font-weight:600; }
+    .full {
+      grid-column: 1 / -1;
+    }
+    .button-row {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-top: 16px;
+    }
+    button {
+      border:0;border-radius:14px;padding:11px 16px;font:inherit;
+      font-weight:700;cursor:pointer;transition:opacity .15s,transform .1s;
+    }
+    button:hover{opacity:.88;transform:translateY(-1px);}
+    button:active{transform:translateY(0);}
+    .primary {
+      background:linear-gradient(135deg,var(--accent),#f0c040);
+      color:var(--night);box-shadow:0 4px 14px rgba(240,165,0,.35);
+    }
+    .secondary {
+      background:rgba(139,188,240,.15);border:1px solid rgba(139,188,240,.3);
+      color:var(--pale);
+    }
+    .metrics {
+      display:grid;grid-template-columns:repeat(5,minmax(0,1fr));
+      gap:10px;margin-top:14px;
+    }
+    @media(max-width:640px){.metrics{grid-template-columns:repeat(3,1fr);}}
+    @media(max-width:400px){.metrics{grid-template-columns:repeat(2,1fr);}}
+    .metric {
+      background:rgba(255,255,255,.06);border:1px solid rgba(139,188,240,.18);
+      border-radius:16px;padding:14px 12px;box-shadow:0 6px 20px rgba(0,0,0,.2);
+      backdrop-filter:blur(8px);
+    }
+    .metric-title {
+      color:var(--soft);font-size:.7rem;font-weight:700;
+      text-transform:uppercase;letter-spacing:.06em;
+    }
+    .metric-value {
+      margin-top:6px;font-size:1.5rem;font-weight:900;
+      letter-spacing:-.04em;color:var(--gold);
+    }
+    .metric-note { margin-top:5px;color:rgba(139,188,240,.7);font-size:.72rem; }
+    .legend {
+      display:flex;gap:10px;flex-wrap:wrap;margin-top:12px;
+    }
+    .legend-item {
+      display:flex;align-items:center;gap:7px;
+      color:rgba(255,255,255,.7);font-size:.8rem;font-weight:600;
+    }
+    .legend-swatch {
+      width:16px;height:16px;border-radius:5px;flex-shrink:0;
+      border:1px solid rgba(255,255,255,.15);
+    }
+    .legend-swatch.sleep    { background:var(--c-sleep); }
+    .legend-swatch.latency  { background:var(--c-latency); }
+    .legend-swatch.awake-bed{ background:var(--c-awake); }
+    .legend-swatch.work     {
+      background:transparent;
+      box-shadow:inset 0 0 0 2px var(--c-work);
+      background:repeating-linear-gradient(-45deg,rgba(167,139,250,.35) 0 3px,transparent 3px 8px);
+    }
+    /* ── 모바일 친화 수면 타임라인 ── */
+    .journal-shell {
+      margin-top:14px;
+      border:1px solid rgba(139,188,240,.18);
+      border-radius:18px;
+      overflow:hidden;
+      background:rgba(10,22,40,.55);
+    }
+    /* 헤더 시간 눈금 */
+    .tl-header {
+      display:grid;
+      grid-template-columns: 72px 1fr 40px;
+      align-items:center;
+      padding:8px 10px 6px;
+      border-bottom:1px solid rgba(139,188,240,.12);
+      font-size:.7rem;color:var(--soft);font-weight:600;
+    }
+    .tl-hour-labels {
+      display:flex;justify-content:space-between;
+      padding:0 2px;
+    }
+    /* 하루 행 */
+    .tl-row {
+      display:grid;
+      grid-template-columns:72px 1fr 40px;
+      align-items:center;
+      padding:6px 10px;
+      border-bottom:1px solid rgba(139,188,240,.07);
+      gap:8px;
+    }
+    .tl-row:last-child { border-bottom:none; }
+    .tl-row:hover { background:rgba(59,125,216,.07); }
+    .tl-date {
+      font-size:.8rem;font-weight:700;color:var(--pale);
+      white-space:nowrap;
+    }
+    .tl-weekday { font-size:.72rem;color:var(--soft);margin-top:1px; }
+    .tl-bar-wrap {
+      position:relative;height:28px;border-radius:6px;
+      background:rgba(255,255,255,.04);overflow:visible;
+    }
+    /* 세그먼트 절대 위치 — left/width는 JS에서 % 단위로 */
+    .tl-seg {
+      position:absolute;top:0;height:100%;border-radius:3px;
+      transition:opacity .2s;
+    }
+    .tl-seg:hover { opacity:.8; }
+    .tl-seg.sleep   { background:var(--c-sleep);    z-index:3; }
+    .tl-seg.latency { background:var(--c-latency);  z-index:2; }
+    .tl-seg.awake   { background:var(--c-awake);    z-index:2; }
+    .tl-seg.work    {
+      background:repeating-linear-gradient(-45deg,rgba(167,139,250,.45) 0 3px,transparent 3px 7px);
+      border:1.5px solid var(--c-work);z-index:1;border-radius:4px;
+    }
+    /* 시간 눈금 선 */
+    .tl-grid-line {
+      position:absolute;top:0;bottom:0;width:1px;
+      background:rgba(139,188,240,.12);pointer-events:none;
+    }
+    .tl-grid-line.major { background:rgba(139,188,240,.22); }
+    .tl-tst {
+      font-size:.8rem;font-weight:700;color:var(--gold);
+      text-align:right;white-space:nowrap;
+    }
+    /* 오늘 행 강조 */
+    .tl-row.today { background:rgba(59,125,216,.1);border-left:3px solid var(--blue); }
+    .tl-row.today .tl-date { color:var(--gold); }
+    /* 범례 */
+    .tl-legend {
+      display:flex;flex-wrap:wrap;gap:10px;
+      padding:10px 12px;border-top:1px solid rgba(139,188,240,.1);
+      background:rgba(10,22,40,.3);
+    }
+    .tl-legend-item {
+      display:flex;align-items:center;gap:6px;
+      font-size:.75rem;color:rgba(255,255,255,.65);font-weight:600;
+    }
+    .tl-swatch {
+      width:14px;height:14px;border-radius:4px;flex-shrink:0;
+    }
+    .tl-swatch.sleep   { background:var(--c-sleep); }
+    .tl-swatch.latency { background:var(--c-latency); }
+    .tl-swatch.awake   { background:var(--c-awake); }
+    .tl-swatch.work    {
+      background:repeating-linear-gradient(-45deg,rgba(167,139,250,.6) 0 3px,transparent 3px 7px);
+      border:1.5px solid var(--c-work);
+    }
+    /* 저장 기록 카드 리스트 */
+    .history-list { display:flex;flex-direction:column;gap:10px;margin-top:10px; }
+    .hist-card {
+      background:rgba(255,255,255,.05);border:1px solid rgba(139,188,240,.18);
+      border-radius:16px;padding:14px 14px 12px;
+    }
+    .hist-card-top {
+      display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;
+    }
+    .hist-date { font-size:.88rem;font-weight:700;color:var(--pale); }
+    .hist-shift {
+      font-size:.72rem;font-weight:700;padding:3px 9px;border-radius:999px;
+      background:rgba(59,125,216,.2);color:var(--soft);border:1px solid rgba(139,188,240,.25);
+    }
+    .hist-bar-wrap {
+      position:relative;height:22px;border-radius:6px;
+      background:rgba(255,255,255,.04);overflow:visible;margin-bottom:6px;
+    }
+    .hist-seg {
+      position:absolute;top:0;height:100%;border-radius:3px;
+    }
+    .hist-seg.sleep   { background:var(--c-sleep);z-index:3; }
+    .hist-seg.latency { background:var(--c-latency);z-index:2; }
+    .hist-seg.awake   { background:var(--c-awake);z-index:2; }
+    .hist-seg.work    {
+      background:repeating-linear-gradient(-45deg,rgba(167,139,250,.45) 0 3px,transparent 3px 7px);
+      border:1.5px solid var(--c-work);z-index:1;border-radius:4px;
+    }
+    .hist-bar-label {
+      display:flex;justify-content:space-between;
+      font-size:.65rem;color:rgba(139,188,240,.5);margin-bottom:8px;
+    }
+    .hist-stats {
+      display:flex;flex-wrap:wrap;gap:6px;
+    }
+    .hist-stat {
+      font-size:.75rem;padding:3px 8px;border-radius:8px;
+      background:rgba(255,255,255,.06);color:rgba(255,255,255,.75);
+    }
+    .hist-stat strong { color:var(--gold); }
+    .hist-tags {
+      margin-top:6px;display:flex;flex-wrap:wrap;gap:4px;
+    }
+    .hist-tag {
+      font-size:.7rem;padding:2px 7px;border-radius:999px;
+      background:rgba(139,188,240,.12);color:var(--soft);
+    }
+    .feedback {
+      border-radius:14px;padding:13px 15px;margin-top:8px;
+      border-left:5px solid;line-height:1.65;font-size:.88rem;
+      color:rgba(255,255,255,.85);
+    }
+    .feedback.good    { background:var(--good-bg);border-color:var(--good-border); }
+    .feedback.warning { background:var(--warn-bg);border-color:var(--warn-border); }
+    .feedback.alert   { background:var(--alert-bg);border-color:var(--alert-border); }
+    .check-item {
+      display:flex;align-items:flex-start;gap:10px;
+      background:rgba(255,255,255,.04);border:1px solid rgba(139,188,240,.15);
+      border-left:4px solid var(--blue);border-radius:14px;
+      padding:11px 13px;margin-top:8px;color:rgba(255,255,255,.85);
+    }
+    .tag-grid {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 8px;
+    }
+    /* 숨긴 실제 체크박스 */
+    .tag-option input[type="checkbox"] {
+      position: absolute;
+      opacity: 0;
+      width: 0;
+      height: 0;
+      pointer-events: none;
+    }
+    /* pill 기본 */
+    .tag-option {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 7px 14px;
+      border-radius: 999px;
+      background: #f1f5f9;
+      border: 1.5px solid #cbd5e1;
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: #64748b;
+      cursor: pointer;
+      user-select: none;
+      transition: background 0.15s, border-color 0.15s, color 0.15s, box-shadow 0.15s;
+    }
+    .tag-option:hover {
+      background: #e0e7ff;
+      border-color: #818cf8;
+      color: #3730a3;
+    }
+    .tag-option.selected-C { background:rgba(251,191,36,.2);border-color:#fbbf24;color:#fef3c7;box-shadow:0 0 0 2px rgba(251,191,36,.25); }
+    .tag-option.selected-F { background:rgba(52,211,153,.18);border-color:#34d399;color:#d1fae5;box-shadow:0 0 0 2px rgba(52,211,153,.2); }
+    .tag-option.selected-A { background:rgba(248,113,113,.18);border-color:#f87171;color:#fee2e2;box-shadow:0 0 0 2px rgba(248,113,113,.2); }
+    .tag-option.selected-E { background:rgba(96,165,250,.18);border-color:#60a5fa;color:#dbeafe;box-shadow:0 0 0 2px rgba(96,165,250,.2); }
+    .tag-option.selected-S { background:rgba(167,139,250,.18);border-color:#a78bfa;color:#ede9fe;box-shadow:0 0 0 2px rgba(167,139,250,.2); }
+    .progress {
+      margin-top:12px;height:8px;border-radius:999px;
+      background:rgba(255,255,255,.1);overflow:hidden;
+    }
+    .progress-bar {
+      height:100%;width:0%;
+      background:linear-gradient(90deg,var(--accent),var(--blue));
+      transition:width .3s ease;
+    }
+    .table-wrap {
+      overflow-x:auto;margin-top:12px;
+    }
+    table {
+      width:100%;border-collapse:collapse;font-size:.88rem;color:var(--text);
+    }
+    th,td {
+      text-align:left;padding:9px 10px;border-bottom:1px solid rgba(139,188,240,.1);
+    }
+    tr:hover td { background:rgba(59,125,216,.07); }
+    th {
+      color:var(--soft);font-size:.75rem;font-weight:600;
+      text-transform:uppercase;letter-spacing:.06em;
+      background:rgba(255,255,255,.03);
+    }
+    .tips li { margin:9px 0;line-height:1.65;font-size:.9rem;color:rgba(255,255,255,.8); }
+    .tips strong { color:var(--gold); }
+    .empty { color:var(--soft);padding:12px 0 4px;opacity:.7;font-size:.88rem; }
+    .status { margin-top:12px;font-weight:700;color:var(--gold);font-size:.88rem; }
+    @media(max-width:760px){
+      .form-grid { grid-template-columns:1fr; }
+      .hero h1 { font-size:1.4rem; }
+      .hero { padding:24px 18px; }
+      .card { padding:16px 14px; }
+    }
+    @media(max-width:480px){
+      .hero-moon { font-size:32px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="star-field" id="stars"></div>
+  <div class="container">
+    <section class="hero">
+      <span class="hero-moon">🌙</span>
+      <div class="hero-badge">✦ &nbsp; M.bridge × 일마음 센터 &nbsp; ✦</div>
+      <h1>나의 <em>수면 일지</em></h1>
+      <p>선생님들의 수면을 도와드리기 위해 수면 일지를 웹으로 기록할 수 있게 제작하였습니다.</p>
+      <div class="chip-row">
+        <span class="chip">하루 1회 기록</span>
+        <span class="chip">수면/근무 패턴 시각화</span>
+        <span class="chip">브라우저 저장</span>
+        <span class="chip">7일 연속 확인</span>
+      </div>
+    </section>
+
+    <div class="grid">
+      <section class="card">
+        <h2>📝 오늘의 수면 기록</h2>
+        <p class="subtle">날짜는 근무한 날짜 기준입니다. 수면은 전일/당일 같은 고정 규칙 대신 실제 수면 시작 일시와 종료 일시를 연속 시간으로 입력합니다. 기록은 기기에 자동 저장됩니다. 파일을 저장해두면 언제든 다시 열어도 기록이 남아있습니다.</p>
+
+        <div class="form-grid">
+          <div class="field">
+            <label for="logDate">근무 날짜</label>
+            <input id="logDate" type="date" />
+          </div>
+          <div class="field">
+            <label for="shift">근무조</label>
+            <select id="shift">
+              <option>OFF</option>
+              <option>Day</option>
+              <option>Evening</option>
+              <option>Night</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="bedStartAt">침대에 누운 일시</label>
+            <input id="bedStartAt" type="datetime-local" />
+          </div>
+          <div class="field">
+            <label for="sleepStartAt">실제 잠든 일시</label>
+            <input id="sleepStartAt" type="datetime-local" />
+          </div>
+          <div class="field">
+            <label for="finalWakeAt">최종 기상 일시</label>
+            <input id="finalWakeAt" type="datetime-local" />
+          </div>
+          <div class="field">
+            <label for="bedEndAt">침대에서 나온 일시</label>
+            <input id="bedEndAt" type="datetime-local" />
+          </div>
+          <div class="field">
+            <label for="awakenings">잠들려 했지만 못 잔 + 중간에 깬 시간(분)</label>
+            <div class="slider-wrap">
+              <input id="awakenings" type="range" min="0" max="180" step="5" value="20" />
+              <div class="slider-note"><span id="awakeningsValue">20</span>분</div>
+            </div>
+          </div>
+          <div class="field">
+            <label for="fatigue">피로도</label>
+            <div class="slider-wrap">
+              <input id="fatigue" type="range" min="1" max="10" step="1" value="5" />
+              <div class="slider-note"><span id="fatigueValue">5</span>/10</div>
+            </div>
+          </div>
+          <div class="field">
+            <label for="satisfaction">수면만족도</label>
+            <div class="slider-wrap">
+              <input id="satisfaction" type="range" min="1" max="10" step="1" value="5" />
+              <div class="slider-note"><span id="satisfactionValue">5</span>/10</div>
+            </div>
+          </div>
+          <div class="field">
+            <label for="caffeineCups">카페인 섭취(잔)</label>
+            <div class="slider-wrap">
+              <input id="caffeineCups" type="range" min="0" max="5" step="1" value="1" />
+              <div class="slider-note"><span id="caffeineCupsValue">1</span>잔</div>
+            </div>
+          </div>
+          <div class="field">
+            <label for="caffeineCutoff">마지막 카페인 시간</label>
+            <input id="caffeineCutoff" type="time" value="14:00" />
+          </div>
+          <div class="field full">
+            <label>🏷 특이사항</label>
+            <div class="tag-grid">
+              <label class="tag-option" data-tag="C"><input type="checkbox" id="tagC" value="C">☕ 카페인</label>
+              <label class="tag-option" data-tag="F"><input type="checkbox" id="tagF" value="F">🍽 음식</label>
+              <label class="tag-option" data-tag="A"><input type="checkbox" id="tagA" value="A">🍺 알코올</label>
+              <label class="tag-option" data-tag="E"><input type="checkbox" id="tagE" value="E">🏃 운동</label>
+              <label class="tag-option" data-tag="S"><input type="checkbox" id="tagS" value="S">💭 스트레스</label>
+            </div>
+          </div>
+          <div class="field full">
+            <label for="environmentNotes">📝 수면환경 메모</label>
+            <textarea id="environmentNotes" placeholder="예) 시끄러웠음 · 더웠음 · 암막 잘 됨 · 생각이 많았음"></textarea>
+          </div>
+        </div>
+
+        <div class="metrics" id="previewMetrics"></div>
+        <div class="journal-shell" id="sleepJournalGrid">
+          <!-- JS가 tl-header + tl-row들 + tl-legend 렌더링 -->
+        </div>
+
+        <div class="button-row">
+          <button class="primary" id="saveBtn">✅ 기록 저장</button>
+          <button class="secondary" id="loadTodayBtn">오늘 기록 불러오기</button>
+          <button class="secondary" id="resetBtn">폼 초기화</button>
+        </div>
+        <div class="status" id="statusText"></div>
+
+        <div style="margin-top:18px;">
+          <h3>📌 저장된 기록</h3>
+          <div id="savedHistorySummary" class="subtle"></div>
+          <div class="history-list" id="savedHistoryTable"></div>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>📊 오늘의 평가</h2>
+        <div id="feedbackArea" class="empty">기록을 저장하거나 값을 바꾸면 즉시 피드백이 계산됩니다.</div>
+      </section>
+
+      <section class="card">
+        <h2>✅ 오늘의 할 일</h2>
+        <div id="checklistArea" class="empty">입력값에 맞춘 체크리스트가 여기에 표시됩니다.</div>
+        <div class="progress"><div class="progress-bar" id="progressBar"></div></div>
+        <div class="subtle" id="progressText" style="margin-top:8px;">0/0 완료</div>
+      </section>
+
+      <section class="card">
+        <h2>🧾 현재 입력 미리보기</h2>
+        <div id="currentPreviewSummary" class="subtle">위에서 입력 중인 값이 표 형식으로 바로 보입니다.</div>
+        <div class="history-list" id="currentPreviewTable"></div>
+      </section>
+
+      <section class="card">
+        <h2>💡 수면 개선 팁</h2>
+        <ul class="tips">
+          <li><strong>수면 루틴 고정</strong>: 주말 포함 같은 시간에 일어나면 생체리듬이 덜 흔들립니다.</li>
+          <li><strong>수면환경 정리</strong>: 암막, 소음 차단, 시원한 온도가 중간각성을 줄이는 데 도움 됩니다.</li>
+          <li><strong>카페인 컷오프</strong>: 보통 취침 8시간 전부터 카페인을 줄이는 편이 안전합니다.</li>
+          <li><strong>야간근무 회복 전략</strong>: 전략적 낮잠, 귀가 후 빛 차단, 빠른 수면 루틴 전환이 중요합니다.</li>
+          <li><strong>회복 활동</strong>: 가벼운 걷기, 스트레칭, 따뜻한 샤워가 피로 회복에 도움 됩니다.</li>
+        </ul>
+      </section>
+    </div>
+  </div>
+
+  <script>
+    const STORAGE_KEY = "sleep-journal-records-v1";
+    const TARGETS = {
+      OFF: { tstMin: 7.0, tstGood: 8.0 },
+      Day: { tstMin: 6.5, tstGood: 7.5 },
+      Evening: { tstMin: 6.5, tstGood: 7.5 },
+      Night: { tstMin: 5.5, tstGood: 6.5 },
+    };
+    const SHIFT_WINDOWS = {
+      Day: { start: { dayOffset: 0, hour: 7, minute: 0 }, end: { dayOffset: 0, hour: 15, minute: 30 } },
+      Evening: { start: { dayOffset: 0, hour: 15, minute: 0 }, end: { dayOffset: 0, hour: 23, minute: 0 } },
+      Night: { start: { dayOffset: 0, hour: 22, minute: 30 }, end: { dayOffset: 1, hour: 7, minute: 30 } },
+      OFF: null,
+    };
+    const JOURNAL_START_HOUR = 0;
+    const JOURNAL_SLOT_MINUTES = 30;
+    const JOURNAL_TOTAL_SLOTS = 48;
+
+    const els = {
+      logDate: document.getElementById("logDate"),
+      bedStartAt: document.getElementById("bedStartAt"),
+      sleepStartAt: document.getElementById("sleepStartAt"),
+      finalWakeAt: document.getElementById("finalWakeAt"),
+      bedEndAt: document.getElementById("bedEndAt"),
+      shift: document.getElementById("shift"),
+      awakenings: document.getElementById("awakenings"),
+      fatigue: document.getElementById("fatigue"),
+      satisfaction: document.getElementById("satisfaction"),
+      caffeineCups: document.getElementById("caffeineCups"),
+      caffeineCutoff: document.getElementById("caffeineCutoff"),
+      tagC: document.getElementById("tagC"),
+      tagF: document.getElementById("tagF"),
+      tagA: document.getElementById("tagA"),
+      tagE: document.getElementById("tagE"),
+      tagS: document.getElementById("tagS"),
+      environmentNotes: document.getElementById("environmentNotes"),
+      awakeningsValue: document.getElementById("awakeningsValue"),
+      fatigueValue: document.getElementById("fatigueValue"),
+      satisfactionValue: document.getElementById("satisfactionValue"),
+      caffeineCupsValue: document.getElementById("caffeineCupsValue"),
+      previewMetrics: document.getElementById("previewMetrics"),
+      sleepJournalGrid: document.getElementById("sleepJournalGrid"),
+      feedbackArea: document.getElementById("feedbackArea"),
+      checklistArea: document.getElementById("checklistArea"),
+      progressBar: document.getElementById("progressBar"),
+      progressText: document.getElementById("progressText"),
+      savedHistoryTable: document.getElementById("savedHistoryTable"),
+      savedHistorySummary: document.getElementById("savedHistorySummary"),
+      currentPreviewTable: document.getElementById("currentPreviewTable"),
+      currentPreviewSummary: document.getElementById("currentPreviewSummary"),
+      statusText: document.getElementById("statusText"),
+      saveBtn: document.getElementById("saveBtn"),
+      loadTodayBtn: document.getElementById("loadTodayBtn"),
+      resetBtn: document.getElementById("resetBtn"),
+    };
+
+    function todayString() {
+      const now = new Date();
+      return now.toISOString().slice(0, 10);
+    }
+
+    function loadRecords() {
+      try {
+        return JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]");
+      } catch {
+        return [];
+      }
+    }
+
+    function saveRecords(records) {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(records));
+    }
+
+    function timeToMinutes(value) {
+      const [h, m] = value.split(":").map(Number);
+      return h * 60 + m;
+    }
+
+    function toDateTimeLocalValue(dateObj) {
+      const y = dateObj.getFullYear();
+      const m = String(dateObj.getMonth() + 1).padStart(2, "0");
+      const d = String(dateObj.getDate()).padStart(2, "0");
+      const hh = String(dateObj.getHours()).padStart(2, "0");
+      const mm = String(dateObj.getMinutes()).padStart(2, "0");
+      return `${y}-${m}-${d}T${hh}:${mm}`;
+    }
+
+    function parseDateTimeLocalToMinutes(value) {
+      return Math.floor(new Date(value).getTime() / 60000);
+    }
+
+    function getSelectedTags() {
+      return ["C", "F", "A", "E", "S"].filter(code => {
+        const key = `tag${code}`;
+        return els[key] && els[key].checked;
+      });
+    }
+
+    function applySelectedTags(tags) {
+      const active = Array.isArray(tags) ? tags : String(tags || "").split(",").map(item => item.trim()).filter(Boolean);
+      ["C", "F", "A", "E", "S"].forEach(code => {
+        const key = `tag${code}`;
+        if (els[key]) {
+          els[key].checked = active.includes(code);
+          const lbl = els[key].closest(".tag-option");
+          if (lbl) {
+            ["C","F","A","E","S"].forEach(c => lbl.classList.remove(`selected-${c}`));
+            if (active.includes(code)) lbl.classList.add(`selected-${code}`);
+          }
+        }
+      });
+    }
+
+    function getSuggestedSleepWindow(workDate, shift) {
+      const { year, month, day } = parseDateParts(workDate);
+      let bedStart;
+      let sleepStart;
+      let finalWake;
+      let bedEnd;
+      if (shift === "Day") {
+        bedStart = new Date(year, month - 1, day - 1, 22, 30, 0, 0);
+        sleepStart = new Date(year, month - 1, day - 1, 23, 0, 0, 0);
+        finalWake = new Date(year, month - 1, day, 6, 30, 0, 0);
+        bedEnd = new Date(year, month - 1, day, 7, 0, 0, 0);
+      } else if (shift === "Evening") {
+        bedStart = new Date(year, month - 1, day + 1, 0, 30, 0, 0);
+        sleepStart = new Date(year, month - 1, day + 1, 1, 0, 0, 0);
+        finalWake = new Date(year, month - 1, day + 1, 8, 30, 0, 0);
+        bedEnd = new Date(year, month - 1, day + 1, 9, 0, 0, 0);
+      } else if (shift === "Night") {
+        bedStart = new Date(year, month - 1, day, 9, 30, 0, 0);
+        sleepStart = new Date(year, month - 1, day, 10, 0, 0, 0);
+        finalWake = new Date(year, month - 1, day, 16, 0, 0, 0);
+        bedEnd = new Date(year, month - 1, day, 16, 30, 0, 0);
+      } else {
+        bedStart = new Date(year, month - 1, day - 1, 22, 30, 0, 0);
+        sleepStart = new Date(year, month - 1, day - 1, 23, 0, 0, 0);
+        finalWake = new Date(year, month - 1, day, 6, 30, 0, 0);
+        bedEnd = new Date(year, month - 1, day, 7, 0, 0, 0);
+      }
+      return {
+        bedStartAt: toDateTimeLocalValue(bedStart),
+        sleepStartAt: toDateTimeLocalValue(sleepStart),
+        finalWakeAt: toDateTimeLocalValue(finalWake),
+        bedEndAt: toDateTimeLocalValue(bedEnd),
+      };
+    }
+
+    function computeMetrics(log) {
+      let bedStartMinutes;
+      let sleepStartMinutes;
+      let finalWakeMinutes;
+      let bedEndMinutes;
+
+      if (log.bedStartAt && log.sleepStartAt && log.finalWakeAt && log.bedEndAt) {
+        bedStartMinutes = parseDateTimeLocalToMinutes(log.bedStartAt);
+        sleepStartMinutes = parseDateTimeLocalToMinutes(log.sleepStartAt);
+        finalWakeMinutes = parseDateTimeLocalToMinutes(log.finalWakeAt);
+        bedEndMinutes = parseDateTimeLocalToMinutes(log.bedEndAt);
+      } else {
+        const suggested = getSuggestedSleepWindow(log.date || todayString(), log.shift || "OFF");
+        bedStartMinutes = parseDateTimeLocalToMinutes(suggested.bedStartAt);
+        sleepStartMinutes = parseDateTimeLocalToMinutes(suggested.sleepStartAt);
+        finalWakeMinutes = parseDateTimeLocalToMinutes(suggested.finalWakeAt);
+        bedEndMinutes = parseDateTimeLocalToMinutes(suggested.bedEndAt);
+      }
+
+      if (sleepStartMinutes < bedStartMinutes) sleepStartMinutes = bedStartMinutes;
+      if (finalWakeMinutes < sleepStartMinutes) finalWakeMinutes = sleepStartMinutes;
+      if (bedEndMinutes < finalWakeMinutes) bedEndMinutes = finalWakeMinutes;
+
+      const tibHours = (bedEndMinutes - bedStartMinutes) / 60;
+      const attemptedOrAwakeMinutes = Number(log.awakeningsMin) || 0;
+      const sleepWindowHours = (finalWakeMinutes - sleepStartMinutes) / 60;
+      const tstHours = Math.max(0.5, sleepWindowHours - attemptedOrAwakeMinutes / 60);
+      const sleepEfficiency = tibHours > 0 ? (tstHours / tibHours) * 100 : 0;
+      const target = TARGETS[log.shift] || TARGETS.OFF;
+      return {
+        tibHours: round(tibHours),
+        tstHours: round(tstHours),
+        sleepEfficiency: round(sleepEfficiency, 1),
+        recoveryScore: calculateRecoveryScore({
+          ...log,
+          tstHours,
+        }),
+        target,
+        bedStartMinutes,
+        sleepStartMinutes,
+        finalWakeMinutes,
+        bedEndMinutes,
+        attemptedOrAwakeMinutes,
+      };
+    }
+
+    function buildSleepStateRanges(log) {
+      const metrics = computeMetrics(log);
+      const yellowRanges = [];
+      const orangeRanges = [];
+      const blueRanges = [];
+
+      if (metrics.sleepStartMinutes > metrics.bedStartMinutes) {
+        yellowRanges.push({ start: metrics.bedStartMinutes, end: metrics.sleepStartMinutes });
+      }
+      if (metrics.bedEndMinutes > metrics.finalWakeMinutes) {
+        blueRanges.push({ start: metrics.finalWakeMinutes, end: metrics.bedEndMinutes });
+      }
+
+      const wakeMinutes = Math.min(metrics.attemptedOrAwakeMinutes, Math.max(metrics.finalWakeMinutes - metrics.sleepStartMinutes, 0));
+      if (wakeMinutes > 0) {
+        const mid = (metrics.sleepStartMinutes + metrics.finalWakeMinutes) / 2;
+        const wakeStart = Math.max(metrics.sleepStartMinutes, Math.round(mid - wakeMinutes / 2));
+        const wakeEnd = Math.min(metrics.finalWakeMinutes, wakeStart + wakeMinutes);
+        yellowRanges.push({ start: wakeStart, end: wakeEnd });
+
+        if (wakeStart > metrics.sleepStartMinutes) {
+          orangeRanges.push({ start: metrics.sleepStartMinutes, end: wakeStart });
+        }
+        if (metrics.finalWakeMinutes > wakeEnd) {
+          orangeRanges.push({ start: wakeEnd, end: metrics.finalWakeMinutes });
+        }
+      } else if (metrics.finalWakeMinutes > metrics.sleepStartMinutes) {
+        orangeRanges.push({ start: metrics.sleepStartMinutes, end: metrics.finalWakeMinutes });
+      }
+
+      return { metrics, yellowRanges, orangeRanges, blueRanges };
+    }
+
+    function parseDateParts(dateStr) {
+      const [year, month, day] = dateStr.split("-").map(Number);
+      return { year, month, day };
+    }
+
+    function absoluteMinutes(dateStr, dayOffset, hour, minute) {
+      const { year, month, day } = parseDateParts(dateStr);
+      const base = new Date(year, month - 1, day + dayOffset, hour, minute, 0, 0);
+      return Math.floor(base.getTime() / 60000);
+    }
+
+    function formatDateKey(dateObj) {
+      const y = dateObj.getFullYear();
+      const m = String(dateObj.getMonth() + 1).padStart(2, "0");
+      const d = String(dateObj.getDate()).padStart(2, "0");
+      return `${y}-${m}-${d}`;
+    }
+
+    function addDays(dateStr, dayOffset) {
+      const { year, month, day } = parseDateParts(dateStr);
+      const next = new Date(year, month - 1, day + dayOffset);
+      return formatDateKey(next);
+    }
+
+    function getSevenDayKeys(endDateStr) {
+      return Array.from({ length: 7 }, (_, idx) => addDays(endDateStr, idx - 6));
+    }
+
+    function getJournalWindow(dateStr) {
+      const start = absoluteMinutes(dateStr, 0, JOURNAL_START_HOUR, 0);
+      const end = start + JOURNAL_TOTAL_SLOTS * JOURNAL_SLOT_MINUTES;
+      return { start, end };
+    }
+
+    function getShiftRange(log) {
+      const window = SHIFT_WINDOWS[log.shift];
+      if (!window) return null;
+      return {
+        start: absoluteMinutes(log.date, window.start.dayOffset, window.start.hour, window.start.minute),
+        end: absoluteMinutes(log.date, window.end.dayOffset, window.end.hour, window.end.minute),
+      };
+    }
+
+    function overlaps(slotStart, slotEnd, range) {
+      if (!range) return false;
+      return range.start < slotEnd && range.end > slotStart;
+    }
+
+    function buildJournalHeader() {
+      const periodCells = [
+        `<div class="journal-cell journal-period" style="grid-column: span 2;">구분</div>`,
+        `<div class="journal-cell journal-period" style="grid-column: span 24;">오전(AM)</div>`,
+        `<div class="journal-cell journal-period" style="grid-column: span 24;">오후(PM)</div>`,
+        `<div class="journal-cell journal-period">총 수면</div>`,
+      ];
+
+      const hourLabels = [];
+      hourLabels.push(`<div class="journal-cell journal-header">날짜</div>`);
+      hourLabels.push(`<div class="journal-cell journal-header">요일</div>`);
+      const labels = Array.from({ length: 24 }, (_, idx) => idx);
+      labels.forEach(hour => {
+        hourLabels.push(`<div class="journal-cell journal-time" style="grid-column: span 2;">${hour}</div>`);
+      });
+      hourLabels.push(`<div class="journal-cell journal-header">시간</div>`);
+      return periodCells.join("") + hourLabels.join("");
+    }
+
+    function buildRecordLookup(currentLog) {
+      const records = loadRecords();
+      const map = new Map(records.map(record => [record.date, record]));
+      if (currentLog && currentLog.date) {
+        map.set(currentLog.date, currentLog);
+      }
+      return map;
+    }
+
+    function getActiveRanges(records) {
+      return records.map(record => {
+        const stateRanges = buildSleepStateRanges(record);
+        return {
+          record,
+          orangeRanges: stateRanges.orangeRanges,
+          yellowRanges: stateRanges.yellowRanges,
+          blueRanges: stateRanges.blueRanges,
+          shiftRange: getShiftRange(record),
+        };
+      });
+    }
+
+    // 분 → 타임라인 % 변환 (00:00 기준 24시간)
+    function minToPercent(absMin, dayBaseMin) {
+      const offset = absMin - dayBaseMin;
+      return Math.max(0, Math.min(100, (offset / (24*60)) * 100));
+    }
+
+    function renderJournal(log) {
+      if (!log.date) { els.sleepJournalGrid.innerHTML = ""; return; }
+      const dayKeys = getSevenDayKeys(log.date);
+      const recordLookup = buildRecordLookup(log);
+      const todayStr = log.date;
+
+      // 헤더 시간 눈금
+      const hourMarks = [0,3,6,9,12,15,18,21].map(h =>
+        `<span>${String(h).padStart(2,'0')}</span>`).join('');
+
+      let rows = '';
+      dayKeys.forEach(dayKey => {
+        const rec = recordLookup.get(dayKey);
+        const rowMetrics = rec ? computeMetrics(rec) : null;
+        const dayBaseMin = absoluteMinutes(dayKey, 0, 0, 0);
+        const isToday = dayKey === todayStr;
+        const dayLabel = new Date(dayKey + 'T12:00').toLocaleDateString('ko-KR',{month:'numeric',day:'numeric'});
+        const wdLabel  = new Date(dayKey + 'T12:00').toLocaleDateString('ko-KR',{weekday:'short'});
+
+        // 시간 눈금 선 (3시간 간격)
+        let gridLines = '';
+        [0,3,6,9,12,15,18,21,24].forEach(h => {
+          const pct = (h/24)*100;
+          gridLines += `<div class="tl-grid-line${h%6===0?' major':''}" style="left:${pct}%"></div>`;
+        });
+
+        // 수면 세그먼트
+        let segs = gridLines;
+        if (rec) {
+          const sr = buildSleepStateRanges(rec);
+          const shiftR = getShiftRange(rec);
+          // 근무 먼저 (맨 아래)
+          if (shiftR) {
+            const l = minToPercent(shiftR.start, dayBaseMin);
+            const r = minToPercent(shiftR.end, dayBaseMin);
+            segs += `<div class="tl-seg work" style="left:${l}%;width:${Math.max(0,r-l)}%"></div>`;
+          }
+          // 침대 각성 (파랑)
+          sr.blueRanges.forEach(range => {
+            const l = minToPercent(range.start, dayBaseMin);
+            const r = minToPercent(range.end, dayBaseMin);
+            segs += `<div class="tl-seg awake" style="left:${l}%;width:${Math.max(0,r-l)}%"></div>`;
+          });
+          // 잠들기 전/각성 (노랑)
+          sr.yellowRanges.forEach(range => {
+            const l = minToPercent(range.start, dayBaseMin);
+            const r = minToPercent(range.end, dayBaseMin);
+            segs += `<div class="tl-seg latency" style="left:${l}%;width:${Math.max(0,r-l)}%"></div>`;
+          });
+          // 실제 수면 (그린)
+          sr.orangeRanges.forEach(range => {
+            const l = minToPercent(range.start, dayBaseMin);
+            const r = minToPercent(range.end, dayBaseMin);
+            segs += `<div class="tl-seg sleep" style="left:${l}%;width:${Math.max(0,r-l)}%"></div>`;
+          });
+        }
+
+        const tstText = rowMetrics ? rowMetrics.tstHours.toFixed(1)+'h' : '-';
+        rows += `
+          <div class="tl-row${isToday?' today':''}">
+            <div>
+              <div class="tl-date">${dayLabel}</div>
+              <div class="tl-weekday">${wdLabel}</div>
+            </div>
+            <div class="tl-bar-wrap">${segs}</div>
+            <div class="tl-tst">${tstText}</div>
+          </div>`;
+      });
+
+      const legend = `<div class="tl-legend">
+        <div class="tl-legend-item"><div class="tl-swatch sleep"></div>실제 수면</div>
+        <div class="tl-legend-item"><div class="tl-swatch latency"></div>잠들기 전 / 각성</div>
+        <div class="tl-legend-item"><div class="tl-swatch awake"></div>침대에서 깨어있던 시간</div>
+        <div class="tl-legend-item"><div class="tl-swatch work"></div>근무</div>
+      </div>`;
+
+      const header = `<div class="tl-header">
+        <div>날짜</div>
+        <div class="tl-hour-labels">${hourMarks}</div>
+        <div style="text-align:right;font-size:.65rem;">수면</div>
+      </div>`;
+
+      els.sleepJournalGrid.innerHTML = header + rows + legend;
+    }
+
+    function buildHistCard(row) {
+      const tags = Array.isArray(row.specialTags)
+        ? row.specialTags : String(row.specialTags||'').split(',').map(t=>t.trim()).filter(Boolean);
+      const dayBaseMin = absoluteMinutes(row.date, 0, 0, 0);
+      const sr = buildSleepStateRanges(row);
+      const shiftR = getShiftRange(row);
+
+      // 세그먼트 HTML
+      let segs = '';
+      // 눈금 선
+      [0,6,12,18,24].forEach(h => {
+        const pct = (h/24)*100;
+        segs += `<div class="tl-grid-line major" style="left:${pct}%"></div>`;
+      });
+      if (shiftR) {
+        const l = minToPercent(shiftR.start, dayBaseMin);
+        const r2 = minToPercent(shiftR.end, dayBaseMin);
+        segs += `<div class="hist-seg work" style="left:${l}%;width:${Math.max(0,r2-l)}%"></div>`;
+      }
+      sr.blueRanges.forEach(range => {
+        const l = minToPercent(range.start, dayBaseMin);
+        const r2 = minToPercent(range.end, dayBaseMin);
+        segs += `<div class="hist-seg awake" style="left:${l}%;width:${Math.max(0,r2-l)}%"></div>`;
+      });
+      sr.yellowRanges.forEach(range => {
+        const l = minToPercent(range.start, dayBaseMin);
+        const r2 = minToPercent(range.end, dayBaseMin);
+        segs += `<div class="hist-seg latency" style="left:${l}%;width:${Math.max(0,r2-l)}%"></div>`;
+      });
+      sr.orangeRanges.forEach(range => {
+        const l = minToPercent(range.start, dayBaseMin);
+        const r2 = minToPercent(range.end, dayBaseMin);
+        segs += `<div class="hist-seg sleep" style="left:${l}%;width:${Math.max(0,r2-l)}%"></div>`;
+      });
+
+      const barLabels = `<div class="hist-bar-label">
+        <span>00</span><span>06</span><span>12</span><span>18</span><span>24</span>
+      </div>`;
+
+      const shiftLabel = row.shift || '-';
+      const tagHtml = tags.length
+        ? `<div class="hist-tags">${tags.map(t=>`<span class="hist-tag">${t}</span>`).join('')}</div>` : '';
+
+      // 회복지수 색상
+      const rs = Number(row.recoveryScore||0);
+      const rsColor = rs >= 80 ? '#34d399' : rs >= 60 ? '#fbbf24' : '#f87171';
+
+      return `<div class="hist-card">
+        <div class="hist-card-top">
+          <div>
+            <span class="hist-date">${row.date}</span>
+          </div>
+          <span class="hist-shift">${shiftLabel}</span>
+        </div>
+        <div class="hist-bar-wrap">${segs}</div>
+        ${barLabels}
+        <div class="hist-stats">
+          <div class="hist-stat">💤 수면 <strong>${Number(row.tstHours||0).toFixed(1)}h</strong></div>
+          <div class="hist-stat">⏱ 각성 <strong>${row.awakeningsMin||0}분</strong></div>
+          <div class="hist-stat">😴 피로 <strong>${row.fatigue||'-'}/10</strong></div>
+          <div class="hist-stat">⭐ 만족 <strong>${row.satisfaction||'-'}/10</strong></div>
+          <div class="hist-stat">🔋 회복 <strong style="color:${rsColor}">${rs.toFixed(1)}</strong></div>
+        </div>
+        ${tagHtml}
+      </div>`;
+    }
+
+    function calculateRecoveryScore(log) {
+      const target = TARGETS[log.shift] || TARGETS.OFF;
+      const tst = Number(log.tstHours || 0);
+      const awakenings = Number(log.awakeningsMin || 0);
+      const fatigue = Number(log.fatigue || 5);
+      const satisfaction = Number(log.satisfaction || 5);
+      const caffeineCups = Number(log.caffeineCups || 0);
+      const duration = Math.min(tst / target.tstGood, 1) * 35;
+      const continuity = Math.max(0, 1 - awakenings / 90) * 20;
+      const fatigueScore = Math.max(0, 1 - (fatigue - 1) / 9) * 25;
+      const satisfactionScore = satisfaction / 10 * 15;
+      const caffeineScore = Math.max(0, 1 - caffeineCups / 5) * 5;
+      return round(duration + continuity + fatigueScore + satisfactionScore + caffeineScore, 1);
+    }
+
+    function round(value, digit = 2) {
+      const factor = Math.pow(10, digit);
+      return Math.round(value * factor) / factor;
+    }
+
+    function currentFormData() {
+      return {
+        date: els.logDate.value,
+        bedStartAt: els.bedStartAt.value,
+        sleepStartAt: els.sleepStartAt.value,
+        finalWakeAt: els.finalWakeAt.value,
+        bedEndAt: els.bedEndAt.value,
+        shift: els.shift.value,
+        awakeningsMin: Number(els.awakenings.value),
+        fatigue: Number(els.fatigue.value),
+        satisfaction: Number(els.satisfaction.value),
+        caffeineCups: Number(els.caffeineCups.value),
+        caffeineCutoff: els.caffeineCutoff.value,
+        specialTags: getSelectedTags(),
+        environmentNotes: els.environmentNotes.value.trim(),
+      };
+    }
+
+    function analyzeToday(log) {
+      const messages = [];
+      let status = "neutral";
+      const metrics = computeMetrics(log);
+      const target = TARGETS[log.shift] || TARGETS.OFF;
+      const tst = metrics.tstHours;
+      const awakenings = Number(log.awakeningsMin);
+      const fatigue = Number(log.fatigue);
+      const satisfaction = Number(log.satisfaction);
+      const recovery = metrics.recoveryScore;
+
+      if (tst < target.tstMin) {
+        const level = log.shift === "Night" && tst < 5 ? "alert" : "warning";
+        messages.push({
+          title: level === "alert" ? "🚨 수면시간 매우 부족" : "⚠️ 수면시간 부족",
+          text: `${log.shift} 기준 총수면시간 ${tst.toFixed(1)}시간으로 목표보다 부족합니다. 최소 ${target.tstMin.toFixed(1)}시간 이상 확보해보세요.`,
+          type: level,
+        });
+        status = level;
+      } else if (tst >= target.tstGood) {
+        messages.push({
+          title: "✅ 수면시간 양호",
+          text: `${tst.toFixed(1)}시간 수면으로 회복 기반이 좋습니다.`,
+          type: "good",
+        });
+        status = "good";
+      }
+
+      if (awakenings > 60) {
+        messages.push({
+          title: "⚠️ 중간각성 많음",
+          text: `밤 중 깨어 있던 시간이 ${awakenings}분입니다. 수면환경과 취침 전 루틴을 점검하세요.`,
+          type: "warning",
+        });
+        if (status !== "alert") status = "warning";
+      } else if (awakenings <= 30) {
+        messages.push({
+          title: "✅ 수면 연속성 양호",
+          text: `중간각성 ${awakenings}분으로 비교적 안정적입니다.`,
+          type: "good",
+        });
+      }
+
+      if (fatigue >= 8) {
+        messages.push({
+          title: "🚨 피로도 높음",
+          text: `피로도 ${fatigue}/10입니다. 오늘은 회복 우선으로 일정을 가볍게 가져가세요.`,
+          type: "alert",
+        });
+        status = "alert";
+      } else if (fatigue >= 6) {
+        messages.push({
+          title: "⚠️ 피로도 경계",
+          text: `피로도 ${fatigue}/10입니다. 산책, 수분 섭취, 짧은 회복 루틴이 필요합니다.`,
+          type: "warning",
+        });
+        if (status !== "alert") status = "warning";
+      } else {
+        messages.push({
+          title: "✅ 회복 상태 양호",
+          text: `피로도 ${fatigue}/10으로 비교적 괜찮습니다.`,
+          type: "good",
+        });
+      }
+
+      if (satisfaction >= 8) {
+        messages.push({
+          title: "🌟 수면만족도 높음",
+          text: `수면만족도 ${satisfaction}/10으로 좋은 밤이었습니다.`,
+          type: "good",
+        });
+      } else if (satisfaction <= 4) {
+        messages.push({
+          title: "⚠️ 체감 회복 낮음",
+          text: `수면만족도 ${satisfaction}/10입니다. 수면의 질도 흔들렸을 수 있습니다.`,
+          type: "warning",
+        });
+      }
+
+      if (recovery >= 80) {
+        messages.push({
+          title: "💎 회복지수 우수",
+          text: `회복지수 ${recovery.toFixed(1)}/100입니다. 현재 루틴을 유지해보세요.`,
+          type: "good",
+        });
+      } else if (recovery < 60) {
+        messages.push({
+          title: "📉 회복지수 낮음",
+          text: `회복지수 ${recovery.toFixed(1)}/100입니다. 오늘은 카페인과 밝은 빛 노출을 더 조심하세요.`,
+          type: "warning",
+        });
+      }
+
+      return { status, messages, metrics };
+    }
+
+    function getChecklist(log) {
+      const items = [
+        ["매일 같은 시간에 일어나기", "🔄 루틴"],
+        ["자기 전 30분은 휴대폰 대신 조용한 루틴 만들기", "📵 집중"],
+      ];
+      const tst = computeMetrics(log).tstHours;
+      if (tst < 6) items.push(["오늘 20~30분 회복 낮잠 계획하기", "💤 회복"]);
+      if (log.shift === "Night") {
+        items.push(["야간근무 전후 빛 노출 줄이기", "🌙 조절"]);
+        if (tst < 5.5) items.push(["야간근무 전 90분 전략적 낮잠 확보", "💪 준비"]);
+      }
+      if (Number(log.awakeningsMin) > 40) {
+        items.push(["암막커튼, 소음, 온도, 침구 상태 점검", "🛏️ 환경"]);
+        items.push(["알림 차단 또는 비행기 모드 사용", "📴 차단"]);
+      }
+      if (Number(log.fatigue) >= 6) {
+        items.push(["최소 15분 산책 또는 가벼운 스트레칭", "🚶 활동"]);
+        items.push(["수분 섭취와 식사 타이밍 챙기기", "🥤 회복"]);
+      }
+      if (Number(log.caffeineCups) >= 2) {
+        items.push(["카페인 컷오프 시간 지키기", "☕ 컷오프"]);
+        items.push(["카페인 이후 물 또는 무카페인 차로 대체하기", "🍵 대체"]);
+      }
+      items.push(["내일도 같은 시간에 기록 남기기", "📝 기록"]);
+      return items;
+    }
+
+    function renderPreview(log) {
+      const result = analyzeToday(log);
+      const metrics = result.metrics;
+
+      els.previewMetrics.innerHTML = `
+        <div class="metric">
+          <div class="metric-title">수면 구간</div>
+          <div class="metric-value">${metrics.tibHours.toFixed(1)}h</div>
+          <div class="metric-note">실제 입력한 시작 ~ 종료 일시</div>
+        </div>
+        <div class="metric">
+          <div class="metric-title">총수면시간</div>
+          <div class="metric-value">${metrics.tstHours.toFixed(1)}h</div>
+          <div class="metric-note">연속 수면 시간 + 중간각성 반영</div>
+        </div>
+        <div class="metric">
+          <div class="metric-title">수면효율</div>
+          <div class="metric-value">${metrics.sleepEfficiency.toFixed(1)}%</div>
+          <div class="metric-note">실제 수면 구간 기준</div>
+        </div>
+        <div class="metric">
+          <div class="metric-title">회복지수</div>
+          <div class="metric-value">${metrics.recoveryScore.toFixed(1)}</div>
+          <div class="metric-note">해당 근무일 컨디션 예측</div>
+        </div>
+        <div class="metric">
+          <div class="metric-title">근무조 목표</div>
+          <div class="metric-value">${metrics.target.tstGood.toFixed(1)}h</div>
+          <div class="metric-note">${log.date} ${log.shift} 근무 기준</div>
+        </div>
+      `;
+
+      if (!result.messages.length) {
+        els.feedbackArea.innerHTML = `<div class="empty">기록을 저장하거나 값을 바꾸면 즉시 피드백이 계산됩니다.</div>`;
+      } else {
+        els.feedbackArea.innerHTML = result.messages.map(msg => `
+          <div class="feedback ${msg.type}">
+            <strong>${msg.title}</strong><br>${msg.text}
+          </div>
+        `).join("");
+      }
+
+      renderJournal(log);
+      renderChecklist(log);
+      renderCurrentPreview(log, metrics);
+    }
+
+    function renderCurrentPreview(log, metrics = computeMetrics(log)) {
+      if (!log.date) {
+        els.currentPreviewSummary.textContent = "위에서 입력 중인 값이 표 형식으로 바로 보입니다.";
+        els.currentPreviewTable.innerHTML = `<tr><td colspan="8" class="empty">아직 입력 중인 기록이 없습니다.</td></tr>`;
+        return;
+      }
+
+      const row = { ...log, ...metrics };
+      els.currentPreviewSummary.innerHTML = `
+        현재 입력값입니다. <strong>${row.date}</strong> 근무 기준으로,
+        수면은 사용자가 입력한 시작/종료 일시 그대로 반영됩니다.
+      `;
+      els.currentPreviewTable.innerHTML = buildHistCard(row);
+    }
+
+    function renderChecklist(log) {
+      const items = getChecklist(log);
+      if (!items.length) {
+        els.checklistArea.innerHTML = `<div class="empty">체크리스트가 없습니다.</div>`;
+        els.progressBar.style.width = "0%";
+        els.progressText.textContent = "0/0 완료";
+        return;
+      }
+      els.checklistArea.innerHTML = items.map((item, idx) => `
+        <label class="check-item">
+          <input type="checkbox" data-check-index="${idx}">
+          <div><strong>[${item[1]}]</strong> ${item[0]}</div>
+        </label>
+      `).join("");
+      const boxes = [...els.checklistArea.querySelectorAll("input[type='checkbox']")];
+      boxes.forEach(box => box.addEventListener("change", updateProgress));
+      updateProgress();
+    }
+
+    function updateProgress() {
+      const boxes = [...els.checklistArea.querySelectorAll("input[type='checkbox']")];
+      const total = boxes.length;
+      const completed = boxes.filter(box => box.checked).length;
+      const percent = total ? (completed / total) * 100 : 0;
+      els.progressBar.style.width = `${percent}%`;
+      els.progressText.textContent = `${completed}/${total} 완료`;
+    }
+
+    function renderHistory() {
+      const records = loadRecords().sort((a, b) => b.date.localeCompare(a.date)).slice(0, 14);
+      if (!records.length) {
+        els.savedHistoryTable.innerHTML = `<tr><td colspan="8" class="empty">아직 저장된 기록이 없습니다.</td></tr>`;
+        els.savedHistorySummary.textContent = "";
+        return;
+      }
+
+      const enriched = records.map(record => {
+        const metrics = computeMetrics(record);
+        return { ...record, ...metrics };
+      });
+
+      const avgTst = enriched.reduce((sum, r) => sum + r.tstHours, 0) / enriched.length;
+      const avgFatigue = enriched.reduce((sum, r) => sum + Number(r.fatigue), 0) / enriched.length;
+      const avgSatisfaction = enriched.reduce((sum, r) => sum + Number(r.satisfaction), 0) / enriched.length;
+      const avgRecovery = enriched.reduce((sum, r) => sum + r.recoveryScore, 0) / enriched.length;
+
+      els.savedHistorySummary.innerHTML = `
+        최근 ${enriched.length}건 기준 평균 총수면시간 <strong>${avgTst.toFixed(1)}h</strong>,
+        평균 피로도 <strong>${avgFatigue.toFixed(1)}/10</strong>,
+        평균 만족도 <strong>${avgSatisfaction.toFixed(1)}/10</strong>,
+        평균 회복지수 <strong>${avgRecovery.toFixed(1)}/100</strong>
+      `;
+
+      els.savedHistoryTable.innerHTML = enriched.map(buildHistCard).join("");
+    }
+
+    function saveCurrentRecord() {
+      const log = currentFormData();
+      if (!log.date || !log.bedStartAt || !log.sleepStartAt || !log.finalWakeAt || !log.bedEndAt) {
+        els.statusText.textContent = "근무 날짜와 침대/수면 시작, 최종 기상, 침대 종료 일시를 입력해주세요.";
+        return;
+      }
+      const bedStart = parseDateTimeLocalToMinutes(log.bedStartAt);
+      const sleepStart = parseDateTimeLocalToMinutes(log.sleepStartAt);
+      const finalWake = parseDateTimeLocalToMinutes(log.finalWakeAt);
+      const bedEnd = parseDateTimeLocalToMinutes(log.bedEndAt);
+      if (!(bedStart <= sleepStart && sleepStart <= finalWake && finalWake <= bedEnd)) {
+        els.statusText.textContent = "시간 순서를 확인해주세요. 침대에 누운 시각 ≤ 실제 잠든 시각 ≤ 최종 기상 시각 ≤ 침대에서 나온 시각 이어야 합니다.";
+        return;
+      }
+
+      const records = loadRecords();
+      const existingIndex = records.findIndex(item => item.date === log.date);
+      if (existingIndex >= 0) {
+        records[existingIndex] = log;
+      } else {
+        records.push(log);
+      }
+      saveRecords(records);
+      els.statusText.textContent = `${log.date} 기록이 저장되었습니다.`;
+      renderHistory();
+      renderPreview(log);
+    }
+
+    function loadTodayRecord() {
+      const today = todayString();
+      const records = loadRecords();
+      const record = records.find(item => item.date === today);
+      if (!record) {
+        els.statusText.textContent = "오늘 날짜로 저장된 기록이 없습니다.";
+        return;
+      }
+      applyRecord(record);
+      els.statusText.textContent = "오늘 기록을 불러왔습니다.";
+    }
+
+    function applyRecord(record) {
+      const suggested = getSuggestedSleepWindow(record.date || todayString(), record.shift || "OFF");
+      els.logDate.value = record.date || todayString();
+      els.bedStartAt.value = record.bedStartAt || suggested.bedStartAt;
+      els.sleepStartAt.value = record.sleepStartAt || suggested.sleepStartAt;
+      els.finalWakeAt.value = record.finalWakeAt || suggested.finalWakeAt;
+      els.bedEndAt.value = record.bedEndAt || suggested.bedEndAt;
+      els.shift.value = record.shift || "OFF";
+      els.awakenings.value = Number(record.awakeningsMin || 20);
+      els.fatigue.value = Number(record.fatigue || 5);
+      els.satisfaction.value = Number(record.satisfaction || 5);
+      els.caffeineCups.value = Number(record.caffeineCups || 1);
+      els.caffeineCutoff.value = record.caffeineCutoff || "14:00";
+      applySelectedTags(record.specialTags || []);
+      els.environmentNotes.value = record.environmentNotes || "";
+      syncSliderLabels();
+      renderPreview(currentFormData());
+    }
+
+    function resetForm() {
+      // 기록은 유지하고 입력 폼만 초기화
+      const suggested = getSuggestedSleepWindow(todayString(), "OFF");
+      applyRecord({
+        date: todayString(),
+        bedStartAt: suggested.bedStartAt,
+        sleepStartAt: suggested.sleepStartAt,
+        finalWakeAt: suggested.finalWakeAt,
+        bedEndAt: suggested.bedEndAt,
+        shift: "OFF",
+        awakeningsMin: 20,
+        fatigue: 5,
+        satisfaction: 5,
+        caffeineCups: 1,
+        caffeineCutoff: "14:00",
+        environmentNotes: "",
+      });
+      renderHistory();
+      els.statusText.textContent = "입력 폼을 초기화했습니다. 저장된 기록은 유지됩니다.";
+    }
+
+    function syncSliderLabels() {
+      els.awakeningsValue.textContent = els.awakenings.value;
+      els.fatigueValue.textContent = els.fatigue.value;
+      els.satisfactionValue.textContent = els.satisfaction.value;
+      els.caffeineCupsValue.textContent = els.caffeineCups.value;
+    }
+
+    function init() {
+      const suggested = getSuggestedSleepWindow(todayString(), "OFF");
+      applyRecord({
+        date: todayString(),
+        bedStartAt: suggested.bedStartAt,
+        sleepStartAt: suggested.sleepStartAt,
+        finalWakeAt: suggested.finalWakeAt,
+        bedEndAt: suggested.bedEndAt,
+        shift: "OFF",
+        awakeningsMin: 20,
+        fatigue: 5,
+        satisfaction: 5,
+        caffeineCups: 1,
+        caffeineCutoff: "14:00",
+        environmentNotes: "",
+      });
+      syncSliderLabels();
+      renderHistory();
+
+      [
+        els.logDate,
+        els.bedStartAt,
+        els.sleepStartAt,
+        els.finalWakeAt,
+        els.bedEndAt,
+        els.shift,
+        els.awakenings,
+        els.fatigue,
+        els.satisfaction,
+        els.caffeineCups,
+        els.caffeineCutoff,
+        els.tagC,
+        els.tagF,
+        els.tagA,
+        els.tagE,
+        els.tagS,
+      // tag pill 비주얼 토글
+      ...["C","F","A","E","S"].map(code => {
+        const lbl = document.querySelector(`.tag-option[data-tag="${code}"]`);
+        if (lbl) {
+          lbl.addEventListener("click", () => {
+            // checkbox 상태는 브라우저가 toggle (label 클릭)
+            setTimeout(() => {
+              const cb = document.getElementById(`tag${code}`);
+              ["C","F","A","E","S"].forEach(c => lbl.classList.remove(`selected-${c}`));
+              if (cb && cb.checked) lbl.classList.add(`selected-${code}`);
+            }, 0);
+          });
+        }
+        return null;
+      }).filter(Boolean),
+        els.environmentNotes,
+      ].forEach(el => {
+        el.addEventListener("input", () => {
+          syncSliderLabels();
+          renderPreview(currentFormData());
+        });
+        el.addEventListener("change", () => {
+          syncSliderLabels();
+          renderPreview(currentFormData());
+        });
+      });
+
+      els.saveBtn.addEventListener("click", saveCurrentRecord);
+      els.loadTodayBtn.addEventListener("click", loadTodayRecord);
+      els.resetBtn.addEventListener("click", resetForm);
+    }
+
+    init();
+  
+    // ── 별빛 ──────────────────────────────────────────────────────────────────
+    (function() {
+      const sf = document.getElementById('stars');
+      if (!sf) return;
+      for (let i = 0; i < 70; i++) {
+        const s = document.createElement('div');
+        s.className = 'star';
+        const sz = Math.random() * 2.5 + 0.8;
+        s.style.cssText = `width:${sz}px;height:${sz}px;left:${Math.random()*100}%;top:${Math.random()*100}%;--dur:${2+Math.random()*4}s;--delay:${Math.random()*5}s;opacity:${0.1+Math.random()*0.5}`;
+        sf.appendChild(s);
+      }
+    })();
+  </script>
+</body>
+</html>

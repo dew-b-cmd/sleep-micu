@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>교육자료 PDF</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{height:100%;background:#1a1a2e;font-family:'Noto Sans KR',sans-serif;overflow:hidden}
+.bar{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:10px 16px;background:rgba(10,22,40,.97);
+  border-bottom:1px solid rgba(139,188,240,.2);
+  position:fixed;top:0;left:0;right:0;z-index:10;
+}
+.bar-title{font-size:14px;font-weight:600;color:#d4e8ff;}
+.back-btn{
+  background:rgba(139,188,240,.15);color:#d4e8ff;
+  border:1px solid rgba(139,188,240,.3);border-radius:8px;
+  padding:7px 14px;font-size:13px;cursor:pointer;
+  text-decoration:none;font-weight:500;
+}
+.pdf-wrap{
+  position:fixed;top:48px;left:0;right:0;bottom:0;
+}
+embed,iframe{width:100%;height:100%;border:none;}
+.no-pdf{
+  display:none;
+  flex-direction:column;align-items:center;justify-content:center;
+  height:100%;color:#8bbcf0;text-align:center;padding:24px;gap:16px;
+}
+.no-pdf p{font-size:14px;line-height:1.7;color:rgba(255,255,255,.7);}
+.no-pdf a{
+  display:inline-block;background:linear-gradient(135deg,#f0a500,#f0c040);
+  color:#0a1628;border-radius:10px;padding:12px 24px;
+  font-weight:700;text-decoration:none;font-size:14px;
+}
+</style>
+</head>
+<body>
+<div class="bar">
+  <span class="bar-title">📋 교육자료 PDF</span>
+  <a class="back-btn" href="index.html">← 공지로</a>
+</div>
+<div class="pdf-wrap" id="pdfWrap">
+  <embed id="pdfEmbed" src="교육자료.pdf" type="application/pdf"
+         width="100%" height="100%"/>
+  <div class="no-pdf" id="noPdf">
+    <p>🙏 이 브라우저에서는 PDF를 바로 볼 수 없어요.<br/>아래 버튼으로 파일을 열어주세요.</p>
+    <a href="교육자료.pdf" target="_blank">PDF 열기</a>
+  </div>
+</div>
+<script>
+// embed 로드 실패 시 fallback 표시
+var em = document.getElementById('pdfEmbed');
+var no = document.getElementById('noPdf');
+em.onerror = function(){ em.style.display='none'; no.style.display='flex'; };
+setTimeout(function(){
+  // iOS에서 embed height가 0이면 실패로 간주
+  if(em.offsetHeight < 10){ em.style.display='none'; no.style.display='flex'; }
+},2000);
+</script>
+</body>
+</html>

@@ -1,0 +1,795 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>ICU 간호사 수면 관리 가이드</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&display=swap" rel="stylesheet"/>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css"/>
+
+<style>
+/* ═══════════════════════════════════════════════════
+   ICU 수면 가이드 — 공지 수면건강 다크 팔레트 통일
+   ═══════════════════════════════════════════════════ */
+*{box-sizing:border-box;margin:0;padding:0}
+
+:root{
+  --night:#0a1628;
+  --navy:#10264a;
+  --deep:#1a3868;
+  --sky:#2a5298;
+  --blue:#3b7dd8;
+  --soft:#8bbcf0;
+  --pale:#d4e8ff;
+  --white:#ffffff;
+  --accent:#f0a500;
+  --gold:#ffd166;
+  --text:#e8f0fe;
+  --muted:#8bbcf0;
+  /* 상태 색 */
+  --c-good:  #34d399;
+  --c-warn:  #fbbf24;
+  --c-alert: #f87171;
+  --c-sleep: #34d399;
+  --c-awake: #fbbf24;
+  /* 카드/표면 */
+  --surface:rgba(255,255,255,.05);
+  --border: rgba(139,188,240,.2);
+  --border-light:rgba(139,188,240,.1);
+  --radius:14px;
+  --radius-sm:8px;
+}
+
+body{
+  font-family:'Noto Sans KR','Segoe UI',sans-serif;
+  background:linear-gradient(160deg,#0a1628 0%,#10264a 40%,#1a3868 70%,#0f1e3a 100%);
+  color:var(--text);
+  min-height:100vh;
+  padding:0 0 60px;
+  position:relative;
+  overflow-x:hidden;
+}
+
+/* 별빛 */
+.star-field{position:fixed;inset:0;pointer-events:none;z-index:0}
+.star{position:absolute;border-radius:50%;background:#fff;
+      animation:twinkle var(--dur,3s) ease-in-out infinite var(--delay,0s)}
+@keyframes twinkle{0%,100%{opacity:.15;transform:scale(1)}50%{opacity:.85;transform:scale(1.3)}}
+
+body::before{
+  content:"";position:fixed;inset:0;pointer-events:none;z-index:0;
+  background:
+    radial-gradient(ellipse at 15% 20%,rgba(59,125,216,.18) 0%,transparent 50%),
+    radial-gradient(ellipse at 85% 70%,rgba(240,165,0,.08)  0%,transparent 45%),
+    radial-gradient(ellipse at 50% 50%,rgba(42,82,152,.12)  0%,transparent 70%);
+}
+
+/* ── 래퍼 ── */
+.guide-wrap{padding:0;max-width:720px;margin:0 auto;position:relative;z-index:1}
+
+/* ── 히어로 ── */
+.hero{
+  background:rgba(255,255,255,.04);backdrop-filter:blur(14px);
+  border:1px solid var(--border);border-radius:0 0 28px 28px;
+  padding:36px 24px 28px;text-align:center;position:relative;overflow:hidden;
+  box-shadow:0 24px 56px rgba(0,0,0,.3);
+}
+.hero::before{
+  content:"";position:absolute;right:-40px;bottom:-40px;
+  width:240px;height:240px;border-radius:50%;pointer-events:none;
+  background:radial-gradient(circle,rgba(240,165,0,.1),transparent 70%);
+}
+.hero-moon{
+  font-size:40px;display:block;margin-bottom:10px;
+  filter:drop-shadow(0 0 16px rgba(240,165,0,.5));
+  animation:float 4s ease-in-out infinite;
+}
+@keyframes float{0%,100%{transform:translateY(0) rotate(-5deg)}50%{transform:translateY(-8px) rotate(5deg)}}
+.hero-badge{
+  display:inline-flex;align-items:center;gap:6px;
+  background:rgba(59,125,216,.2);border:1px solid rgba(139,188,240,.3);
+  border-radius:20px;padding:5px 14px;font-size:11px;
+  color:var(--soft);letter-spacing:.08em;margin-bottom:12px;
+}
+.hero-title{font-size:20px;font-weight:700;color:var(--white);margin-bottom:6px;position:relative;z-index:1}
+.hero-title em{color:var(--gold);font-style:normal}
+.hero-sub{font-size:13px;color:rgba(255,255,255,.7);line-height:1.65;position:relative;z-index:1}
+
+/* ── 탭 바 ── */
+.tab-bar{
+  display:flex;gap:0;background:rgba(10,22,40,.7);backdrop-filter:blur(12px);
+  border-bottom:1px solid var(--border);overflow-x:auto;padding:0 4px;
+  position:sticky;top:0;z-index:10;-webkit-overflow-scrolling:touch;
+}
+.tab-bar::-webkit-scrollbar{height:2px}
+.tab-bar::-webkit-scrollbar-thumb{background:var(--blue)}
+.tab-btn{
+  padding:12px 14px;border:none;border-bottom:2px solid transparent;
+  background:transparent;color:var(--muted);font-size:13px;font-weight:400;
+  cursor:pointer;transition:all .15s;display:flex;align-items:center;gap:5px;
+  white-space:nowrap;font-family:inherit;
+}
+.tab-btn:hover{color:var(--pale);background:rgba(139,188,240,.08)}
+.tab-btn.active{color:var(--gold);border-bottom-color:var(--accent);font-weight:600}
+
+/* ── 섹션 ── */
+.section{display:none;padding:16px 16px 0}
+.section.visible{display:block}
+.section-label{
+  font-size:11px;font-weight:600;color:var(--soft);
+  text-transform:uppercase;letter-spacing:.1em;
+  margin-bottom:10px;margin-top:4px;
+  display:flex;align-items:center;gap:8px;
+}
+.section-label::before{
+  content:"";width:16px;height:2px;
+  background:linear-gradient(90deg,var(--accent),var(--blue));
+  border-radius:1px;display:inline-block;flex-shrink:0;
+}
+
+/* ── 카드 ── */
+.card{
+  background:var(--surface);backdrop-filter:blur(10px);
+  border:1px solid var(--border);border-radius:var(--radius);
+  padding:16px 18px;margin-bottom:12px;
+  box-shadow:0 8px 28px rgba(0,0,0,.2);
+  transition:border-color .2s;
+}
+.card:hover{border-color:rgba(139,188,240,.38)}
+.card-title{
+  font-size:15px;font-weight:600;color:var(--white);
+  margin-bottom:12px;display:flex;align-items:center;gap:8px;
+}
+.card-title i{font-size:18px;color:var(--accent)}
+
+/* ── myth ── */
+.myth-item{
+  display:grid;grid-template-columns:auto 1fr;
+  gap:10px;padding:10px 0;border-bottom:1px solid var(--border-light);
+}
+.myth-item:last-child{border-bottom:none;padding-bottom:0}
+.myth-badge{
+  display:flex;align-items:center;justify-content:center;
+  width:22px;height:22px;border-radius:50%;
+  font-size:12px;flex-shrink:0;margin-top:1px;font-weight:700;
+}
+.badge-x{background:rgba(248,113,113,.2);color:#f87171}
+.badge-o{background:rgba(52,211,153,.18);color:#34d399}
+.myth-text{font-size:13.5px;line-height:1.65;color:var(--text)}
+.myth-q{font-weight:600;margin-bottom:3px;color:var(--white)}
+.myth-a{font-size:12.5px;color:var(--muted)}
+
+/* ── tip-grid ── */
+.tip-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px}
+.tip-card{
+  background:rgba(59,125,216,.1);border:1px solid rgba(139,188,240,.18);
+  border-radius:var(--radius-sm);padding:14px 14px 12px;
+}
+.tip-icon{font-size:22px;color:var(--accent);margin-bottom:6px}
+.tip-label{font-size:11px;color:var(--soft);font-weight:600;margin-bottom:4px;
+            text-transform:uppercase;letter-spacing:.05em}
+.tip-val{font-size:13px;color:rgba(255,255,255,.8);line-height:1.5}
+
+/* ── 교대 탭 ── */
+.shift-tabs{display:flex;gap:8px;margin-bottom:14px}
+.shift-btn{
+  flex:1;padding:9px 8px;border-radius:var(--radius-sm);
+  border:1px solid var(--border);background:var(--surface);
+  color:var(--muted);font-size:13px;cursor:pointer;text-align:center;
+  transition:all .15s;font-family:inherit;
+}
+.shift-btn.active{background:rgba(240,165,0,.18);color:var(--gold);border-color:var(--accent);font-weight:600}
+.shift-content{display:none}
+.shift-content.visible{display:block}
+
+/* ── 타임라인 ── */
+.timeline{position:relative;padding-left:28px}
+.timeline::before{
+  content:'';position:absolute;left:9px;top:4px;bottom:4px;
+  width:2px;background:linear-gradient(to bottom,var(--accent),rgba(59,125,216,.3));
+}
+.tl-item{position:relative;padding:0 0 16px 14px}
+.tl-item::before{
+  content:'';position:absolute;left:-9px;top:5px;
+  width:10px;height:10px;border-radius:50%;
+  background:var(--accent);border:2px solid var(--night);
+  box-shadow:0 0 0 2px rgba(240,165,0,.35);
+}
+.tl-time{font-size:12px;color:var(--gold);font-weight:600;margin-bottom:2px;letter-spacing:.02em}
+.tl-desc{font-size:13.5px;color:var(--white);line-height:1.5;font-weight:500}
+.tl-note{font-size:12px;color:var(--muted);margin-top:3px;line-height:1.4}
+
+/* ── 알림 박스 ── */
+.alert-box{
+  background:rgba(52,211,153,.1);border-left:3px solid var(--c-good);
+  border-radius:0 var(--radius-sm) var(--radius-sm) 0;
+  padding:12px 14px;margin-top:12px;
+  font-size:13px;color:rgba(209,250,229,.9);line-height:1.65;
+}
+.warn-box{
+  background:rgba(251,191,36,.1);border-left:3px solid var(--c-warn);
+  border-radius:0 var(--radius-sm) var(--radius-sm) 0;
+  padding:12px 14px;margin-top:12px;
+  font-size:13px;color:rgba(254,243,199,.9);line-height:1.65;
+}
+
+/* ── 체크리스트 ── */
+.checklist-item{
+  display:flex;align-items:flex-start;gap:10px;
+  padding:9px 0;border-bottom:1px solid var(--border-light);cursor:pointer;
+  transition:opacity .15s;
+}
+.checklist-item:last-child{border-bottom:none}
+.checklist-item:hover{opacity:.85}
+.check-box{
+  width:20px;height:20px;border-radius:5px;
+  border:1.5px solid rgba(139,188,240,.4);
+  display:flex;align-items:center;justify-content:center;
+  flex-shrink:0;margin-top:1px;transition:all .15s;
+  background:rgba(255,255,255,.05);
+}
+.check-box.checked{background:var(--accent);border-color:var(--accent)}
+.check-box.checked::after{content:'✓';font-size:12px;color:var(--night);font-weight:700}
+.check-text{font-size:13.5px;color:var(--text);line-height:1.5}
+.check-text.checked{color:var(--muted);text-decoration:line-through}
+#hygiene-score{margin-top:12px;font-size:13px;color:var(--soft)}
+#hygiene-score strong{color:var(--gold)}
+
+/* ── 호흡 ── */
+.breath-container{text-align:center;padding:20px 0}
+.breath-circle{
+  width:110px;height:110px;border-radius:50%;
+  background:rgba(59,125,216,.15);border:2px solid var(--blue);
+  margin:0 auto 1rem;display:flex;align-items:center;justify-content:center;
+  font-size:13px;font-weight:600;color:var(--pale);
+  transition:all .8s ease;
+}
+.breath-phase{font-size:15px;font-weight:600;color:var(--white);margin-bottom:4px}
+.breath-count{font-size:36px;font-weight:300;color:var(--gold);margin-bottom:1rem}
+.breath-btn{
+  padding:10px 28px;
+  background:linear-gradient(135deg,var(--accent),#f0c040);
+  color:var(--night);border:none;border-radius:var(--radius-sm);
+  font-size:14px;cursor:pointer;font-family:inherit;
+  font-weight:700;transition:opacity .15s;
+  box-shadow:0 4px 14px rgba(240,165,0,.35);
+}
+.breath-btn:hover{opacity:.88}
+#breath-cycle{font-size:12px;color:var(--muted);margin-top:12px}
+
+/* ── 다이어리 시각화 ── */
+.diary-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;margin-top:10px}
+.diary-day{
+  background:rgba(255,255,255,.05);border:1px solid var(--border-light);
+  border-radius:var(--radius-sm);padding:8px 4px;text-align:center;
+}
+.diary-day-label{font-size:11px;color:var(--soft);margin-bottom:5px;font-weight:500}
+.diary-bar-wrap{
+  height:64px;background:rgba(10,22,40,.5);
+  border-radius:4px;position:relative;
+  border:1px solid rgba(139,188,240,.12);overflow:hidden;
+}
+.diary-bar{position:absolute;bottom:0;left:0;right:0;background:var(--c-sleep);transition:height .3s}
+.diary-awake{position:absolute;bottom:0;left:0;right:0;background:var(--c-awake)}
+.diary-eff{font-size:11px;color:var(--gold);margin-top:4px;font-weight:600}
+.legend-row{display:flex;gap:12px;margin-bottom:10px;font-size:12px;color:var(--muted)}
+.legend-dot{width:10px;height:10px;border-radius:2px;display:inline-block;margin-right:4px;vertical-align:middle}
+
+/* ── 수면 효율 계산기 ── */
+#total-time,#sleep-time{
+  width:100%;border:1px solid var(--border);border-radius:var(--radius-sm);
+  padding:8px 10px;font-size:14px;font-family:inherit;
+  background:rgba(255,255,255,.07);color:var(--white);outline:none;
+  transition:border-color .15s;
+}
+#total-time:focus,#sleep-time:focus{border-color:var(--blue);box-shadow:0 0 0 3px rgba(59,125,216,.25)}
+#total-time::placeholder,#sleep-time::placeholder{color:rgba(139,188,240,.4)}
+#eff-result{
+  background:rgba(255,255,255,.06);border:1px solid var(--border-light);
+  border-radius:var(--radius-sm);padding:14px;text-align:center;margin-top:4px;
+}
+#eff-value{font-size:28px;font-weight:700;color:var(--gold)}
+
+/* ── 인포 리스트 ── */
+.infolist{list-style:none}
+.infolist li{
+  display:flex;align-items:flex-start;gap:8px;
+  padding:8px 0;border-bottom:1px solid var(--border-light);
+  font-size:13.5px;line-height:1.55;color:var(--text);
+}
+.infolist li:last-child{border-bottom:none}
+.infolist li i{color:var(--accent);font-size:16px;flex-shrink:0;margin-top:2px}
+
+/* ── 오프 전략 ── */
+.two-col{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+@media(max-width:500px){.two-col{grid-template-columns:1fr}}
+.phase-indicator{display:flex;gap:4px;margin:10px 0;align-items:center}
+.phase-pill{
+  flex:1;padding:7px 4px;border-radius:var(--radius-sm);
+  text-align:center;font-size:11px;font-weight:600;
+}
+.phase-night{background:rgba(240,165,0,.25);color:var(--gold);border:1px solid rgba(240,165,0,.4)}
+.phase-off{background:rgba(139,188,240,.1);color:var(--soft);border:1px solid var(--border)}
+.phase-arrow{display:flex;align-items:center;color:var(--muted);font-size:14px;flex-shrink:0}
+
+/* ── 권장/비권장 박스 ── */
+.rec-good{
+  background:rgba(52,211,153,.08);border:1px solid rgba(52,211,153,.25);
+  border-radius:var(--radius-sm);padding:10px 12px;
+}
+.rec-good .rec-head{font-size:12px;font-weight:600;color:var(--c-good);margin-bottom:6px}
+.rec-bad{
+  background:rgba(248,113,113,.08);border:1px solid rgba(248,113,113,.2);
+  border-radius:var(--radius-sm);padding:10px 12px;
+}
+.rec-bad .rec-head{font-size:12px;font-weight:600;color:var(--c-alert);margin-bottom:6px}
+</style>
+
+<div class="star-field" id="stars"></div>
+<div class="guide-wrap">
+<div class="hero">
+  <span class="hero-moon">🌙</span>
+  <div class="hero-badge">✦ &nbsp; M.bridge × 일마음 센터 &nbsp; ✦</div>
+  <div class="hero-title"><em>ICU 간호사</em> 수면 관리 가이드</div>
+  <div class="hero-sub">3교대 근무자를 위한 실용 수면 전략 · 불면증 인지행동치료(CBT-I) 기반</div>
+</div>
+
+<div class="tab-bar">
+  <button class="tab-btn active" onclick="showTab('basics')"><i class="ti ti-brain" aria-hidden="true"></i>수면 기초</button>
+  <button class="tab-btn" onclick="showTab('shift')"><i class="ti ti-calendar-time" aria-hidden="true"></i>교대 전략</button>
+  <button class="tab-btn" onclick="showTab('hygiene')"><i class="ti ti-checklist" aria-hidden="true"></i>수면 위생</button>
+  <button class="tab-btn" onclick="showTab('relax')"><i class="ti ti-leaf" aria-hidden="true"></i>이완법</button>
+</div>
+
+<!-- TAB 1: 수면 기초 -->
+<div id="tab-basics" class="section visible">
+  <div class="section-label">수면의 원리</div>
+  <div class="card">
+    <div class="card-title"><i class="ti ti-bulb" aria-hidden="true"></i>잠은 의지가 아니라 욕구입니다</div>
+    <ul class="infolist">
+      <li><i class="ti ti-arrow-right" aria-hidden="true"></i>"자야겠다"고 결심한다고 잠이 오지 않습니다. 밥을 먹으려 결심한다고 배고파지지 않는 것처럼, 수면은 자연스럽게 이루어집니다.</li>
+      <li><i class="ti ti-arrow-right" aria-hidden="true"></i><span><strong>수면 압력</strong> — 깨어있는 시간이 길수록 몸이 수면을 원하는 힘이 강해집니다.</span></li>
+      <li><i class="ti ti-arrow-right" aria-hidden="true"></i><span><strong>생체리듬(일주기리듬)</strong> — 24시간 주기로 작동하며, 이 두 요소가 맞아야 잠이 옵니다.</span></li>
+    </ul>
+    <div class="alert-box">💡 핵심: 잠들려고 억지로 노력하는 것 자체가 각성을 높입니다. 졸림이 올 때까지 기다리세요.</div>
+  </div>
+
+  <div class="section-label">흔한 오해 바로잡기</div>
+  <div class="card">
+    <div class="card-title"><i class="ti ti-alert-circle" aria-hidden="true"></i>수면에 대한 진실 vs 오해</div>
+    <div class="myth-item">
+      <div class="myth-badge badge-x">✕</div>
+      <div class="myth-text">
+        <div class="myth-q">오래 누워 있으면 잠들 확률이 높아진다?</div>
+        <div class="myth-a">→ 아닙니다. 침대-각성 연합이 강해져 오히려 잠이 안 옵니다. 정말 졸릴 때만 침대로 가세요.</div>
+      </div>
+    </div>
+    <div class="myth-item">
+      <div class="myth-badge badge-x">✕</div>
+      <div class="myth-text">
+        <div class="myth-q">건강하려면 반드시 8시간을 자야 한다?</div>
+        <div class="myth-a">→ 아닙니다. 필요한 수면 시간은 사람마다 다릅니다.</div>
+      </div>
+    </div>
+    <div class="myth-item">
+      <div class="myth-badge badge-x">✕</div>
+      <div class="myth-text">
+        <div class="myth-q">취침 전 술 한두 잔은 수면에 도움이 된다?</div>
+        <div class="myth-a">→ 아닙니다. 초반엔 졸림이 있으나 후반 수면의 질이 크게 떨어집니다.</div>
+      </div>
+    </div>
+    <div class="myth-item">
+      <div class="myth-badge badge-x">✕</div>
+      <div class="myth-text">
+        <div class="myth-q">침대에서 TV·스마트폰은 잠에 도움이 된다?</div>
+        <div class="myth-a">→ 아닙니다. 청각·시각 자극 모두 수면을 방해합니다.</div>
+      </div>
+    </div>
+    <div class="myth-item">
+      <div class="myth-badge badge-x">✕</div>
+      <div class="myth-text">
+        <div class="myth-q">주말에 몰아자면 평일 부족분이 보충된다?</div>
+        <div class="myth-a">→ 아닙니다. 일시적 기분 호전뿐, 잃어버린 수면은 되돌아오지 않습니다. 습관이 되면 더 해롭습니다.</div>
+      </div>
+    </div>
+    <div class="myth-item">
+      <div class="myth-badge badge-o">○</div>
+      <div class="myth-text">
+        <div class="myth-q">교대 근무자에게 낮잠은 유용하다?</div>
+        <div class="myth-a">→ 맞습니다! 나이트 전 90분~2시간 낮잠은 적극 권장됩니다.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="section-label">불면증 진단 기준</div>
+  <div class="card">
+    <div class="card-title"><i class="ti ti-stethoscope" aria-hidden="true"></i>언제 전문가에게 가야 할까요?</div>
+    <ul class="infolist">
+      <li><i class="ti ti-point-filled" aria-hidden="true"></i>잠들기 어렵거나, 수면 유지가 어렵거나, 이른 아침에 깨서 다시 못 자는 경우</li>
+      <li><i class="ti ti-point-filled" aria-hidden="true"></i>위 증상이 <strong>주 3회 이상, 3개월 이상</strong> 지속</li>
+      <li><i class="ti ti-point-filled" aria-hidden="true"></i>지각, 업무 중 실수 등 일상 기능에 문제가 생길 때</li>
+    </ul>
+    <div class="warn-box">⚠ 교대 근무자는 '일주기 리듬 수면 각성 장애 — 교대근무형'에 해당할 수 있습니다. 증상이 지속되면 병원 상담을 권합니다.</div>
+  </div>
+</div>
+
+<!-- TAB 2: 교대 전략 -->
+<div id="tab-shift" class="section">
+  <div class="section-label">근무 유형별 수면 전략</div>
+
+  <div class="shift-tabs">
+    <button class="shift-btn active" onclick="showShift('night')">나이트(야간)</button>
+    <button class="shift-btn" onclick="showShift('day')">데이(주간)</button>
+    <button class="shift-btn" onclick="showShift('off')">오프(휴무)</button>
+  </div>
+
+  <div id="shift-night" class="shift-content visible">
+    <div class="card">
+      <div class="card-title"><i class="ti ti-moon" aria-hidden="true"></i>나이트 근무 전략</div>
+      <div class="timeline">
+        <div class="tl-item">
+          <div class="tl-time">근무 전 (저녁)</div>
+          <div class="tl-desc">90분~2시간 낮잠 활용</div>
+          <div class="tl-note">근무 에너지 비축에 필수</div>
+        </div>
+        <div class="tl-item">
+          <div class="tl-time">근무 시작</div>
+          <div class="tl-desc">적절한 카페인 섭취 가능</div>
+          <div class="tl-note">단, 퇴근 전 8~12시간부터는 금지</div>
+        </div>
+        <div class="tl-item">
+          <div class="tl-time">근무 중</div>
+          <div class="tl-desc">최대한 밝은 조명 환경 유지</div>
+          <div class="tl-note">뇌가 '낮'이라고 인식하도록</div>
+        </div>
+        <div class="tl-item">
+          <div class="tl-time">퇴근길</div>
+          <div class="tl-desc">선글라스·모자로 빛 차단</div>
+          <div class="tl-note">"나는 지금 잠잘 사람" — 야간 모드 전환</div>
+        </div>
+        <div class="tl-item">
+          <div class="tl-time">귀가 후</div>
+          <div class="tl-desc">반신욕 20분 → 체온 저하 유도 → 취침</div>
+          <div class="tl-note">침실을 완전히 어둡게 (암막 커튼 활용)</div>
+        </div>
+        <div class="tl-item">
+          <div class="tl-time">기상 후</div>
+          <div class="tl-desc">운동은 잠 자고 난 뒤에</div>
+          <div class="tl-note">퇴근 직후 운동 시 체온 상승으로 수면 방해</div>
+        </div>
+      </div>
+      <div class="alert-box">💡 핵심 원칙: 뇌가 야간을 '주간'으로 인식하게 만들고, 퇴근 후엔 '야간 모드'로 전환하세요.</div>
+    </div>
+  </div>
+
+  <div id="shift-day" class="shift-content">
+    <div class="card">
+      <div class="card-title"><i class="ti ti-sun" aria-hidden="true"></i>데이 근무 전략</div>
+      <div class="timeline">
+        <div class="tl-item">
+          <div class="tl-time">기상 시간</div>
+          <div class="tl-desc">취침 시간보다 기상 시간을 일정하게 유지</div>
+          <div class="tl-note">수면 리듬의 닻은 '일어나는 시각'입니다</div>
+        </div>
+        <div class="tl-item">
+          <div class="tl-time">낮 동안</div>
+          <div class="tl-desc">주간 낮잠은 가능한 짧게 (30분 이내)</div>
+          <div class="tl-note">낮잠이 길면 밤 수면 압력이 낮아집니다</div>
+        </div>
+        <div class="tl-item">
+          <div class="tl-time">취침 4시간 전</div>
+          <div class="tl-desc">운동 마무리, 카페인 섭취 제한 시작</div>
+          <div class="tl-note">강도 높은 운동은 체온을 높여 수면 방해</div>
+        </div>
+        <div class="tl-item">
+          <div class="tl-time">취침 1시간 전</div>
+          <div class="tl-desc">나만의 수면 루틴 시작 (샤워, 스트레칭, 명상)</div>
+          <div class="tl-note">스마트폰·TV 대신 이완 활동으로</div>
+        </div>
+        <div class="tl-item">
+          <div class="tl-time">취침 시</div>
+          <div class="tl-desc">졸릴 때만 침대에 눕기</div>
+          <div class="tl-note">20~30분 내 잠 못 들면 일어나서 이완 후 재시도</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="shift-off" class="shift-content">
+    <div class="card">
+      <div class="card-title"><i class="ti ti-calendar-off" aria-hidden="true"></i>오프(휴무) 전략 — 핵심!</div>
+      <div class="alert-box" style="margin-bottom: 12px;">🔑 오프 때 어떻게 자느냐가 다음 근무 적응의 핵심입니다.</div>
+
+      <div class="section-label" style="margin-top: 10px;">다음 근무가 나이트라면</div>
+      <div class="phase-indicator">
+        <div class="phase-pill phase-off">오프 초반</div>
+        <div class="phase-arrow">→</div>
+        <div class="phase-pill phase-off">오프 중반</div>
+        <div class="phase-arrow">→</div>
+        <div class="phase-pill phase-night">나이트 전날</div>
+        <div class="phase-arrow">→</div>
+        <div class="phase-pill phase-night">나이트</div>
+      </div>
+      <ul class="infolist">
+        <li><i class="ti ti-check" aria-hidden="true"></i>나이트 전날: 저녁 낮잠 활용 후, 나이트 패턴으로 수면 위상 이동</li>
+        <li><i class="ti ti-check" aria-hidden="true"></i>완전히 데이 패턴으로 생활하다가 갑자기 나이트 전환 ✕ — 적응이 훨씬 어려워집니다</li>
+        <li><i class="ti ti-check" aria-hidden="true"></i>낮잠을 단계적으로 활용해 수면 위상을 서서히 이동시키세요</li>
+      </ul>
+
+      <div class="section-label" style="margin-top: 12px;">좋은 오프 패턴 vs 나쁜 패턴</div>
+      <div class="two-col">
+        <div class="rec-good">
+          <div class="rec-head">✅ 권장 전략</div>
+          <ul class="infolist">
+            <li style="border:none;padding:3px 0;font-size:12.5px;"><i class="ti ti-point-filled"></i>나이트 패턴 유지 (밤에 깨어있기)</li>
+            <li style="border:none;padding:3px 0;font-size:12.5px;"><i class="ti ti-point-filled"></i>나이트 전날 저녁 낮잠 활용</li>
+            <li style="border:none;padding:3px 0;font-size:12.5px;"><i class="ti ti-point-filled"></i>야간+주간 수면 시간 겹치기</li>
+          </ul>
+        </div>
+        <div class="rec-bad">
+          <div class="rec-head">❌ 비권장 전략</div>
+          <ul class="infolist">
+            <li style="border:none;padding:3px 0;font-size:12.5px;"><i class="ti ti-point-filled"></i>완전히 데이 패턴으로 생활</li>
+            <li style="border:none;padding:3px 0;font-size:12.5px;"><i class="ti ti-point-filled"></i>야간에만 짧은 낮잠</li>
+            <li style="border:none;padding:3px 0;font-size:12.5px;"><i class="ti ti-point-filled"></i>다음 근무 전 갑작스런 수면 변경</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="warn-box" style="margin-top: 12px;">⚠ 오프 때도 수면 시간이 다음 근무와 연결되는 구간이 있어야 적응이 쉬워집니다.</div>
+    </div>
+  </div>
+</div>
+
+<!-- TAB 3: 수면 위생 -->
+<div id="tab-hygiene" class="section">
+  <div class="section-label">나의 수면 위생 체크리스트</div>
+  <div class="card">
+    <div class="card-title"><i class="ti ti-checklist" aria-hidden="true"></i>해당하는 항목을 체크하세요</div>
+    <div id="hygiene-list"></div>
+    <div id="hygiene-score" style="margin-top: 12px; font-size: 13px; color: var(--color-text-secondary);"></div>
+  </div>
+
+  <div class="section-label">환경 & 행동 가이드</div>
+  <div class="tip-grid">
+    <div class="tip-card">
+      <div class="tip-icon"><i class="ti ti-coffee-off" aria-hidden="true"></i></div>
+      <div class="tip-label">카페인 제한</div>
+      <div class="tip-val">취침 8~12시간 전부터 카페인 섭취 제한</div>
+    </div>
+    <div class="tip-card">
+      <div class="tip-icon"><i class="ti ti-brightness-down" aria-hidden="true"></i></div>
+      <div class="tip-label">빛 관리</div>
+      <div class="tip-val">취침 전 빛 노출 줄이기. 퇴근 시 선글라스 착용</div>
+    </div>
+    <div class="tip-card">
+      <div class="tip-icon"><i class="ti ti-clock" aria-hidden="true"></i></div>
+      <div class="tip-label">시계 숨기기</div>
+      <div class="tip-val">밤에 시계 보면 각성↑. 알람만 맞추고 시계 돌려놓기</div>
+    </div>
+    <div class="tip-card">
+      <div class="tip-icon"><i class="ti ti-run" aria-hidden="true"></i></div>
+      <div class="tip-label">운동 타이밍</div>
+      <div class="tip-val">데이: 취침 4시간 전 마무리. 나이트: 기상 후 운동</div>
+    </div>
+    <div class="tip-card">
+      <div class="tip-icon"><i class="ti ti-bath" aria-hidden="true"></i></div>
+      <div class="tip-label">체온 조절</div>
+      <div class="tip-val">취침 전 반신욕 20분 → 체온 저하 → 수면 유도</div>
+    </div>
+    <div class="tip-card">
+      <div class="tip-icon"><i class="ti ti-moon-stars" aria-hidden="true"></i></div>
+      <div class="tip-label">수면 루틴</div>
+      <div class="tip-val">샤워 → 스트레칭 → 명상. 매일 같은 순서로</div>
+    </div>
+  </div>
+
+  <div class="card" style="margin-top:1rem;">
+    <div class="card-title"><i class="ti ti-bed" aria-hidden="true"></i>침대는 오직 수면만을 위한 공간으로</div>
+    <ul class="infolist">
+      <li><i class="ti ti-x" aria-hidden="true"></i>침대에서 TV 시청, 스마트폰 사용, 책 읽기 ✕</li>
+      <li><i class="ti ti-x" aria-hidden="true"></i>피곤하지만 졸리지 않을 때 억지로 눕기 ✕</li>
+      <li><i class="ti ti-x" aria-hidden="true"></i>20~30분 내 잠 못 들면 침대 밖으로 나오기 ○</li>
+      <li><i class="ti ti-check" aria-hidden="true"></i>하품·눈꺼풀 무거움 등 졸음 신호 올 때만 침대에 눕기</li>
+    </ul>
+    <div class="alert-box">💡 자취방이면: 책·스마트폰은 의자나 빈백에서. 침대와 '각성'의 연합을 끊으세요.</div>
+  </div>
+</div>
+
+<!-- TAB 4: 이완법 -->
+<div id="tab-relax" class="section">
+  <div class="section-label">복식호흡 연습</div>
+  <div class="card">
+    <div class="card-title"><i class="ti ti-wind" aria-hidden="true"></i>4-3-5-3 복식호흡법</div>
+    <div class="breath-container">
+      <div class="breath-circle" id="breath-circle">준비</div>
+      <div class="breath-phase" id="breath-phase">시작 버튼을 눌러주세요</div>
+      <div class="breath-count" id="breath-count">—</div>
+      <button class="breath-btn" id="breath-btn" onclick="toggleBreath()">시작</button>
+      <div style="font-size: 12px; color: var(--color-text-secondary); margin-top: 12px;" id="breath-cycle">0 / 5 세트</div>
+    </div>
+    <ul class="infolist" style="margin-top: 0.5rem;">
+      <li><i class="ti ti-arrow-right" aria-hidden="true"></i>들이마시기 4초 → 멈추기 3초 → 내쉬기 5초 → 멈추기 3초</li>
+      <li><i class="ti ti-arrow-right" aria-hidden="true"></i>내쉬는 숨을 들이마시는 숨보다 길게 — 부교감신경 활성화</li>
+      <li><i class="ti ti-arrow-right" aria-hidden="true"></i>배에 풍선이 있다고 상상하며 복부 팽창·수축에 집중</li>
+    </ul>
+  </div>
+
+  <div class="section-label">근육 이완 가이드</div>
+  <div class="card">
+    <div class="card-title"><i class="ti ti-activity" aria-hidden="true"></i>점진적 근육 이완법</div>
+    <ul class="infolist">
+      <li><i class="ti ti-number-1" aria-hidden="true"></i><span><strong>팔 스트레칭</strong> — 양팔을 앞→위→뒤로 쭉 뻗어 최대한 당기기 5초, 툭 떨어뜨리기. 3회 반복</span></li>
+      <li><i class="ti ti-number-2" aria-hidden="true"></i><span><strong>어깨 올리기</strong> — 어깨를 귀에 닿을 듯 최대한 올리기 5초, 힘 빼기. 긴장 vs 이완 차이 느끼기</span></li>
+      <li><i class="ti ti-number-3" aria-hidden="true"></i><span><strong>어깨 모으기</strong> — 양손 X자로 어깨 감싸 최대한 웅크리기 5초, 이완. 등 긴장 느끼기</span></li>
+      <li><i class="ti ti-number-4" aria-hidden="true"></i><span><strong>가슴 펴기</strong> — 어깨 뒤로 당겨 가슴을 앞으로 내밀기 5초, 천천히 이완하며 호흡</span></li>
+    </ul>
+    <div class="alert-box">💡 긴장 → 이완의 차이를 느끼는 것이 핵심. 몸이 이완되어야 마음도, 잠도 옵니다.</div>
+  </div>
+
+  <div class="section-label">마음 다루기</div>
+  <div class="card">
+    <div class="card-title"><i class="ti ti-mental-health" aria-hidden="true"></i>수면 걱정 다루는 법</div>
+    <ul class="infolist">
+      <li><i class="ti ti-alert-triangle" aria-hidden="true"></i>"이러다 내일 실수할 거야" — 이런 생각이 각성을 높입니다</li>
+      <li><i class="ti ti-refresh" aria-hidden="true"></i>대안적 생각: "잠 못 자도 몸은 어느 정도 쉬고 있다. 내일 해봐야 안다."</li>
+      <li><i class="ti ti-eye" aria-hidden="true"></i>마음챙김: 걱정을 '고치려' 하지 말고 "아, 지금 걱정하고 있구나" 하고 흘려보내기</li>
+    </ul>
+    <div class="warn-box">⚠ 걱정이 너무 심하거나 습관화됐다면 일마왕건강센터 개인 심리상담을 신청하세요.</div>
+  </div>
+</div>
+
+</div>
+
+<script>
+function showTab(tab) {
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('visible'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('tab-' + tab).classList.add('visible');
+  event.currentTarget.classList.add('active');
+}
+
+function showShift(shift) {
+  document.querySelectorAll('.shift-content').forEach(s => s.classList.remove('visible'));
+  document.querySelectorAll('.shift-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('shift-' + shift).classList.add('visible');
+  event.currentTarget.classList.add('active');
+}
+
+const hygieneItems = [
+  { text: "잠자리에서 TV나 스마트폰을 보지 않는다", good: true },
+  { text: "침대에서 책을 읽지 않는다", good: true },
+  { text: "졸릴 때만 침대에 눕는다", good: true },
+  { text: "기상 시간을 매일 일정하게 유지한다", good: true },
+  { text: "취침 8시간 전부터 카페인을 끊는다", good: true },
+  { text: "취침 전 음주를 하지 않는다", good: true },
+  { text: "취침 전 밝은 빛(스마트폰 포함) 노출을 줄인다", good: true },
+  { text: "취침 4시간 전까지 운동을 마무리한다", good: true },
+  { text: "밤중에 시계를 확인하지 않는다", good: true },
+  { text: "침실 온도를 서늘하게 유지한다", good: true },
+  { text: "취침 전 자극적인 대화·게임·업무를 피한다", good: true },
+  { text: "나만의 수면 준비 루틴이 있다", good: true },
+];
+
+let checked = new Array(hygieneItems.length).fill(false);
+
+function renderHygiene() {
+  const list = document.getElementById('hygiene-list');
+  list.innerHTML = hygieneItems.map((item, i) => `
+    <div class="checklist-item" onclick="toggleCheck(${i})">
+      <div class="check-box ${checked[i] ? 'checked' : ''}" id="cb-${i}"></div>
+      <div class="check-text ${checked[i] ? 'checked' : ''}" id="ct-${i}">${item.text}</div>
+    </div>
+  `).join('');
+  const cnt = checked.filter(Boolean).length;
+  const score = document.getElementById('hygiene-score');
+  const pct = Math.round(cnt / hygieneItems.length * 100);
+  score.innerHTML = `<strong>${cnt} / ${hygieneItems.length}</strong> 항목 실천 중 (${pct}%)${pct >= 80 ? ' — 훌륭한 수면 위생입니다! 🎉' : pct >= 50 ? ' — 조금 더 실천해보세요.' : ' — 개선이 필요합니다. 하나씩 시작해보세요.'}`;
+}
+
+function toggleCheck(i) {
+  checked[i] = !checked[i];
+  renderHygiene();
+}
+
+renderHygiene();
+
+let breathRunning = false;
+let breathTimer = null;
+let cycleCount = 0;
+const totalCycles = 5;
+const phases = [
+  { name: '들이마시기', duration: 4, size: '130px', bg: '#3b7dd8' },
+  { name: '멈추기', duration: 3, size: '130px', bg: '#f0a500' },
+  { name: '내쉬기', duration: 5, size: '90px', bg: '#8bbcf0' },
+  { name: '멈추기', duration: 3, size: '90px', bg: '#f0a500' },
+];
+let currentPhase = 0;
+let currentCount = 0;
+
+function toggleBreath() {
+  if (breathRunning) {
+    clearTimeout(breathTimer);
+    breathRunning = false;
+    document.getElementById('breath-btn').textContent = '다시 시작';
+    document.getElementById('breath-phase').textContent = '일시정지됨';
+    document.getElementById('breath-count').textContent = '—';
+  } else {
+    breathRunning = true;
+    cycleCount = 0;
+    currentPhase = 0;
+    currentCount = phases[0].duration;
+    document.getElementById('breath-btn').textContent = '정지';
+    runBreath();
+  }
+}
+
+function runBreath() {
+  if (!breathRunning) return;
+  if (cycleCount >= totalCycles) {
+    breathRunning = false;
+    document.getElementById('breath-circle').style.width = '100px';
+    document.getElementById('breath-circle').style.height = '100px';
+    document.getElementById('breath-circle').textContent = '완료!';
+    document.getElementById('breath-phase').textContent = '호흡 완료 — 이완된 느낌을 느껴보세요';
+    document.getElementById('breath-count').textContent = '✓';
+    document.getElementById('breath-btn').textContent = '다시 시작';
+    document.getElementById('breath-cycle').textContent = totalCycles + ' / ' + totalCycles + ' 세트';
+    return;
+  }
+  const p = phases[currentPhase];
+  const circle = document.getElementById('breath-circle');
+  circle.style.width = p.size;
+  circle.style.height = p.size;
+  circle.style.background = 'rgba(59,125,216,0.15)';
+  circle.style.borderColor = p.bg;
+  circle.textContent = p.name;
+  document.getElementById('breath-phase').textContent = p.name;
+  document.getElementById('breath-count').textContent = currentCount;
+  document.getElementById('breath-cycle').textContent = cycleCount + ' / ' + totalCycles + ' 세트';
+
+  if (currentCount > 1) {
+    currentCount--;
+    breathTimer = setTimeout(runBreath, 1000);
+  } else {
+    currentPhase++;
+    if (currentPhase >= phases.length) {
+      currentPhase = 0;
+      cycleCount++;
+    }
+    currentCount = phases[currentPhase] ? phases[currentPhase].duration : 4;
+    breathTimer = setTimeout(runBreath, 1000);
+  }
+}
+
+function calcEff() {
+  const total = parseFloat(document.getElementById('total-time').value) || 0;
+  const sleep = parseFloat(document.getElementById('sleep-time').value) || 0;
+  if (total <= 0) return;
+  const eff = Math.min(100, Math.round(sleep / total * 100));
+  document.getElementById('eff-value').textContent = eff + '%';
+  const color = eff >= 90 ? '#34d399' : eff >= 75 ? '#fbbf24' : '#f87171';
+  document.getElementById('eff-value').style.color = color;
+  const comment = eff >= 90 ? '✅ 목표 달성! 수면 효율이 매우 좋습니다.' : eff >= 75 ? '⚠ 개선 필요. 침대에서 보내는 시간을 줄여보세요.' : '❌ 수면 효율 낮음. 수면 제한 치료를 고려해보세요.';
+  document.getElementById('eff-comment').textContent = comment;
+}
+
+
+// ── 별빛 ────────────────────────────────────────────────────────
+(function() {
+  const sf = document.getElementById('stars');
+  if (!sf) return;
+  for (let i = 0; i < 70; i++) {
+    const s = document.createElement('div');
+    s.className = 'star';
+    const sz = Math.random() * 2.5 + 0.8;
+    s.style.cssText = `width:${sz}px;height:${sz}px;left:${Math.random()*100}%;top:${Math.random()*100}%;--dur:${2+Math.random()*4}s;--delay:${Math.random()*5}s;opacity:${0.1+Math.random()*0.5}`;
+    sf.appendChild(s);
+  }
+})();
+</script>
+
+</body>
+</html>
